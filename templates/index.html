@@ -3,31 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CopilotKit</title>
+    <title>AI by Design</title>
     <link rel="stylesheet" href="/static/css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <h1>CopilotKit</h1>
-            <button id="close-btn"><i class="fas fa-times"></i></button>
+            <div class="logo-container">
+                <svg class="logo" viewBox="0 0 240 80" xmlns="http://www.w3.org/2000/svg">
+                    <!-- AI by Design Logo -->
+                    <text x="10" y="50" font-family="Arial" font-size="24" fill="#bb86fc">AI by Design</text>
+                    <path d="M30,20 Q45,5 60,20 T90,20" stroke="#bb86fc" stroke-width="2" fill="none" />
+                </svg>
+            </div>
         </div>
         <div class="chat-messages" id="chat-messages">
             <div class="message assistant">
                 <div class="message-content">
-                    <p>Hi you! 👋 I can help you create a presentation on any topic.</p>
+                    <p>Hi there! 👋 I'm your AI assistant. How can I help you today?</p>
                 </div>
             </div>
             <!-- Messages will be added here dynamically -->
         </div>
         <div class="chat-input-container">
             <textarea id="chat-input" placeholder="Type a message..." rows="1"></textarea>
-            <button id="voice-btn"><i class="fas fa-microphone"></i></button>
             <button id="send-btn"><i class="fas fa-arrow-up"></i></button>
         </div>
         <div class="chat-footer">
-            <p>Powered by CopilotKit</p>
+            <p>Powered by AI by Design</p>
         </div>
     </div>
     <script src="/static/js/app.js"></script>

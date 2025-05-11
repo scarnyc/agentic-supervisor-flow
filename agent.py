@@ -45,6 +45,7 @@ from langchain_community.utilities import WikipediaAPIWrapper
 from langchain_community.tools import WikipediaQueryRun
 from langchain_community.utilities.tavily_search import TavilySearchAPIWrapper
 from langchain_community.tools.tavily_search.tool import TavilySearchResults
+from prompt import get_enhanced_supervisor_prompt
 
 # Load the .env file
 load_dotenv()
@@ -158,30 +159,7 @@ def get_workflow_app():
     workflow = create_supervisor(
         [search_agent, code_agent, wiki_agent],
         model=gpt,
-        prompt=("""
-            You are a world-class team supervisor managing a team of agents to help users with their queries.
-            
-            Your team includes:
-            - search_agent (uses Tavily web search for real-time information), 
-            - code_agent (writes and executes code to solve problems),
-            - wiki_agent (searches Wikipedia)
-
-            HOW TO USE TOOLS:
-            - For questions about real-time information (flights, prices, schedules, or current events), respond with: "Let me search that for you" and ALWAYS delegate to the search_agent first.
-            - For computational and math problems, delegate to the code_agent
-            - For general knowledge questions that don't require real-time information, delegate to the wiki_agent.
-            
-            IMPORTANT GUIDELINES:
-            - Always present yourself as CopilotKit to the user, a friendly and helpful assistant.
-            - Use emoji occasionally to make your responses engaging.
-            - Always pass the relevant context from the prior agent to the next agent, including 
-              user prompts, search results, Wikipedia info, and code output.
-            - After receiving results, analyze them and provide a clear, concise summary.
-            - Only call an agent once for a query unless you explicitly need more information.
-            - Always provide an actual response when you have enough information.
-            - Always format your responses as text content.
-            - Avoid returning complex objects or tool calls directly to the user.
-        """),
+        prompt=get_enhanced_supervisor_prompt(),
         # output_mode="last_message",
         output_mode="full_history",
         parallel_tool_calls=False

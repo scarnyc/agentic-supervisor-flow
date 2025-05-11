@@ -2,8 +2,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatMessages = document.getElementById('chat-messages');
     const chatInput = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
-    const voiceBtn = document.getElementById('voice-btn');
-    const closeBtn = document.getElementById('close-btn');
     
     // Generate a random session ID
     const sessionId = Math.random().toString(36).substring(2, 15);
@@ -180,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
     
-    // Format message content with simple markdown-like processing
+    // Format message content with enhanced markdown-like processing
     function formatMessage(content) {
         // Replace newlines with <br>
         let formatted = content.replace(/\n/g, '<br>');
@@ -214,7 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Auto-resize the textarea as the user types
     function resizeTextarea() {
         resetInputHeight();
-        const maxHeight = 100; // Maximum height in pixels
+        const maxHeight = 150; // Maximum height in pixels (increased from 100)
         if (chatInput.scrollHeight <= maxHeight) {
             chatInput.style.height = chatInput.scrollHeight + 'px';
         } else {
@@ -233,40 +231,6 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             sendMessage();
         }
-    });
-    
-    // Voice input functionality (placeholder)
-    voiceBtn.addEventListener('click', function() {
-        alert('Voice input feature coming soon!');
-    });
-    
-    // Close button functionality
-    closeBtn.addEventListener('click', function() {
-        // For demo purposes, just minimize the window
-        const container = document.querySelector('.chat-container');
-        container.style.height = '60px';
-        container.style.overflow = 'hidden';
-        
-        // Add a restore button
-        const restoreBtn = document.createElement('button');
-        restoreBtn.id = 'restore-btn';
-        restoreBtn.innerHTML = '<i class="fas fa-expand-alt"></i>';
-        restoreBtn.style.position = 'absolute';
-        restoreBtn.style.top = '15px';
-        restoreBtn.style.right = '50px';
-        restoreBtn.style.background = 'none';
-        restoreBtn.style.border = 'none';
-        restoreBtn.style.color = 'var(--text-color)';
-        restoreBtn.style.fontSize = '20px';
-        restoreBtn.style.cursor = 'pointer';
-        
-        document.querySelector('.chat-header').appendChild(restoreBtn);
-        
-        restoreBtn.addEventListener('click', function() {
-            container.style.height = '600px';
-            container.style.overflow = 'visible';
-            this.remove();
-        });
     });
     
     // Focus input on load
