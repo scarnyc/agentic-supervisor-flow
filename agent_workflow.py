@@ -54,7 +54,7 @@ if not gemini_api_key:
     print("You can get an API key from Google AI Studio: https://makersuite.google.com/")
 
 # Use a generally available model name
-model_name = "gemini-2.5-flash-preview-04-17"
+model_name = "gemini-2.0-flash-001"
 
 # Initialize the LLM with proper configuration
 reasoning_llm = ChatGoogleGenerativeAI(
@@ -64,10 +64,7 @@ reasoning_llm = ChatGoogleGenerativeAI(
     top_p=0.95,
     top_k=30,
     max_output_tokens=8192,
-    convert_system_message_to_human=False,
-    config=GenerateContentConfig(
-        thinking_config=ThinkingConfig(thinking_budget=500)
-    )
+    convert_system_message_to_human=False
  )
 
 # Define Wikipedia Tool with explicit name
@@ -112,7 +109,6 @@ search_agent = create_react_agent(
     You are an expert researcher with access to Google Web Search.
     Search for the user's query and summarize the results.
     When searching the web: Use the google_search tool with a specific query parameter.
-    EXAMPLE: For flight info, use google_search(query="flights from New York to Istanbul December 2025")
     1. After receiving tool results, analyze them and provide a clear, concise summary.
     2. Only call a tool once for a query unless you explicitly need more information.
     3. Always provide an actual response when you have enough information.
@@ -127,7 +123,6 @@ code_agent = create_react_agent(
     You are an expert coder.
     Write and execute code to solve user queries and complex tasks.
     When executing code: Use the code_execution tool with proper code formatting.
-    EXAMPLE: code_execution(code="print('Hello world')")
     1. After receiving tool results, analyze them and provide a clear, concise summary.
     2. Only call a tool once for a query unless you explicitly need more information.
     3. Always provide an actual response when you have enough information.
