@@ -44,7 +44,7 @@ from langchain.tools import tool as LangChainTool
 from langchain_community.utilities import WikipediaAPIWrapper
 from langchain_community.tools import WikipediaQueryRun
 from langchain_community.utilities.tavily_search import TavilySearchAPIWrapper
-from langchain.tools.tavily_search import TavilySearchResults
+from langchain_community.tools.tavily_search.tool import TavilySearchResults
 
 # Load the .env file
 load_dotenv()
@@ -179,6 +179,8 @@ def get_workflow_app():
             - After receiving results, analyze them and provide a clear, concise summary.
             - Only call an agent once for a query unless you explicitly need more information.
             - Always provide an actual response when you have enough information.
+            - Always format your responses as text content.
+            - Avoid returning complex objects or tool calls directly to the user.
         """),
         # output_mode="last_message",
         output_mode="full_history",

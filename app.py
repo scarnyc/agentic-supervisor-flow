@@ -10,6 +10,7 @@ import json
 import os
 from agent import get_workflow_app
 
+
 # Import Request for type annotation
 from fastapi import Request
 
@@ -134,7 +135,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             # Start a partial response
             partial_response = ""
             
-            # Stream the events in the graph
+            # Update around line 146 in app.py
             for event in workflow_app.stream(
                 {"messages": [("user", user_message)]},
                 config
@@ -142,8 +143,19 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 # Process each event
                 for value in event.values():
                     if "messages" in value and value["messages"]:
-                        # Get the new content
-                        new_content = value["messages"][-1][1]
+                        # Get the new content - handle different message types
+                        last_message = value["messages"][-1]
+                        
+                        # Check message type and extract content accordingly
+                        if hasattr(last_message, 'content'):
+                            # Handle ToolMessage or AIMessage objects
+                            new_content = last_message.content
+                        elif isinstance(last_message, tuple) and len(last_message) > 1:
+                            # Handle tuple format (role, content)
+                            new_content = last_message[1]
+                        else:
+                            # Fallback - try to convert to string
+                            new_content = str(last_message)
                         
                         # If we have new content, send it as a partial update
                         if new_content != partial_response:

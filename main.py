@@ -8,7 +8,6 @@ This file runs the FastAPI server and can also be used to test the agent workflo
 import argparse
 import uvicorn
 from app import app
-from agent_workflow import test_workflow
 
 def main():
     """
