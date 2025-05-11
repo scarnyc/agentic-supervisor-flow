@@ -65,8 +65,8 @@ reasoning_llm = ChatGoogleGenerativeAI(
     top_k=30,
     max_output_tokens=8192,
     convert_system_message_to_human=False,
-    config=types.GenerateContentConfig(
-        thinking_config=types.ThinkingConfig(thinking_budget=500)
+    config=GenerateContentConfig(
+        thinking_config=ThinkingConfig(thinking_budget=500)
     )
  )
 
@@ -88,7 +88,7 @@ search_llm = ChatGoogleGenerativeAI(
 	temperature=0.01,   # Lower temperature for search
 	max_output_tokens=2048,
 	model_kwargs={ 
-	    "tools": [types.Tool(google_search=types.GoogleSearch())],
+	    "tools": [Tool(google_search=GoogleSearch())],
 	    "tool_config": {"function_calling_config": {"mode": "AUTO"}}
 	}
 )
@@ -99,7 +99,7 @@ code_llm = ChatGoogleGenerativeAI(
     temperature=0.01,
     max_output_tokens=2048,
     model_kwargs={ 
-        "tools": [types.Tool(code_execution=types.ToolCodeExecution())],
+        "tools": [Tool(code_execution=ToolCodeExecution())],
         "tool_config": {"function_calling_config": {"mode": "AUTO"}}
     }
 )
@@ -153,7 +153,7 @@ wiki_agent = create_react_agent(
 # Create supervisor workflow
 workflow = create_supervisor(
     [search_agent, code_agent, wiki_agent],
-    model=gpt,
+    model=reasoning_llm,
     prompt=("""
         You are a word-class team supervisor managing a team of agents, including:
         - search_agent (uses Google web search for real-time information), 
@@ -188,7 +188,7 @@ def stream_memory_responses(user_input: str):
     config = {"configurable": {"thread_id": "single_session_memory"}}
 
     # Stream the events in the graph
-    for event in graph.stream({"messages": [("user", user_input)]}, config):
+    for event in app.stream({"messages": [("user", user_input)]}, config):
 
         # Return the agent's last response
         for value in event.values():
@@ -196,4 +196,5 @@ def stream_memory_responses(user_input: str):
                 print("Agent:", value["messages"])
 
 stream_memory_responses("What is the Colosseum?")
+stream_memory_responses("what is the factorial of 8?")
 stream_memory_responses("search for flights from ny to instabul during the last week of Dec")
