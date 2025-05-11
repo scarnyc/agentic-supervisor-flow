@@ -24,6 +24,9 @@ from langgraph.prebuilt import ToolNode, tools_condition
 # Modeules for Messages
 from langchain_core.messages import AIMessage, HumanMessage
 
+# Module for setting up OpenAI
+from langchain_openai import ChatOpenAI
+
 # Module for setting up Google Gen AI
 from google import genai
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -42,12 +45,16 @@ from langchain_community.utilities import WikipediaAPIWrapper
 from langchain_community.tools import WikipediaQueryRun
 from langchain_community.utilities.tavily_search import TavilySearchAPIWrapper
 from langchain.tools.tavily_search import TavilySearchResults
-from langchain.agents import AgentType, initialize_agent
 
 # Load the .env file
 load_dotenv()
 
 # --- LangChain/LangGraph Setup ---
+
+# Initialize OpenAI
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
+    raise ValueError("OPENAI_API_KEY environment variable not set")
 
 # Initialize Gemini
 gemini_api_key = os.getenv("GEMINI_API_KEY")
@@ -63,34 +70,27 @@ if not tavily_api_key:
     print("Please set the TAVILY_API_KEY environment variable in your .env file")
 
 # Use a generally available model name
-model_name = "gemini-2.0-flash-001"
-
-# Initialize the LLM with proper configuration
-main_llm = ChatGoogleGenerativeAI(
-    model=model_name,
-    google_api_key=gemini_api_key,
+gpt = ChatOpenAI(
+    model_name="o3-mini-2025-01-31",
     temperature=0.2,
     top_p=0.95,
-    top_k=30,
-    max_output_tokens=8192,
-    convert_system_message_to_human=False
- )
+    top_k=30
+)
+
+# Initialize Gemini LLM
+gemini = ChatGoogleGenerativeAI(
+    model=model_name,  # Same model as main LLM
+    google_api_key=gemini_api_key,
+    temperature=0.01,
+    max_output_tokens=2048,
+    model_kwargs={ 
+        "tools": [Tool(code_execution=ToolCodeExecution())],
+        "tool_config": {"function_calling_config": {"mode": "AUTO"}}
+    }
+)
 
 # initiatilize Tavily Search:
-tavily_search = TavilySearchAPIWrapper()
-    
-# Create a search tool that returns structured results
-search_tool = TavilySearchResults(api_wrapper=tavily_search)
-print("Registered Tavily search tool with name: tavily_search")
-
-# Create a Tool from the search function
-search_toolset = [
-    LangChainTool(
-        name="web_search",
-        func=search_tool.run,
-        description="Search the web for current information. Input should be a search query."
-    )
-]
+tavily_search = TavilySearchResults()
 
 # Define Wikipedia Tool with explicit name
 api_wrapper = WikipediaAPIWrapper(top_k_results=1)
@@ -103,23 +103,10 @@ wikipedia_tool.description = "Searches Wikipedia for information about a given t
 # Print the tool name for debugging
 print(f"Registered Wikipedia tool with name: {wikipedia_tool.name}")
 
-code_llm = ChatGoogleGenerativeAI(
-    model=model_name,  # Same model as main LLM
-    google_api_key=gemini_api_key,
-    temperature=0.01,
-    max_output_tokens=2048,
-    model_kwargs={ 
-        "tools": [Tool(code_execution=ToolCodeExecution())],
-        "tool_config": {"function_calling_config": {"mode": "AUTO"}}
-    }
-)
-
 search_agent = create_react_agent(
-    model=main_llm,
-    tools=[search_toolset],
+    model=gpt,
+    tools=[tavily_search],
     name="search_agent",
-    agent=AgentType.STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION,
-    verbose=True,
     prompt="""
     You are an expert researcher with access to Tavily Web Search.
     Search for the user's query and summarize the results.
@@ -131,10 +118,9 @@ search_agent = create_react_agent(
 )
 
 code_agent = create_react_agent(
-    model=code_llm,
+    model=gemini,
     tools=[],
     name="code_agent",
-    agent=AgentType.STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION,
     prompt="""
     You are an expert coder.
     Write and execute code to solve user queries and complex tasks.
@@ -146,10 +132,9 @@ code_agent = create_react_agent(
 )
 
 wiki_agent = create_react_agent(
-    model=reasoning_llm,
+    model=gpt,
     tools=[wikipedia_tool],
     name="wiki_agent",
-    agent=AgentType.STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION,
     prompt="""
     You are an expert on Wikipedia.
     Search Wikipedia for the user's query and summarize the results.
@@ -165,8 +150,7 @@ wiki_agent = create_react_agent(
 # Create supervisor workflow
 workflow = create_supervisor(
     [search_agent, code_agent, wiki_agent],
-    agent=AgentType.STRUCTURED_CHAT_ZERO_SHOT_REACT_DESCRIPTION,
-    model=main_llm,
+    model=gpt,
     prompt=("""
         You are a word-class team supervisor managing a team of agents, including:
         - search_agent (uses Tavily web search for real-time information), 
