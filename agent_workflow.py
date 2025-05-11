@@ -69,17 +69,23 @@ if not tavily_api_key:
     print("Warning: TAVILY_API_KEY environment variable not set.")
     print("Please set the TAVILY_API_KEY environment variable in your .env file")
 
-# Use a generally available model name
-gpt = ChatOpenAI(
+# Initialize o3 reasoning
+o3 = ChatOpenAI(
     model_name="o3-mini-2025-01-31",
     temperature=0.2,
-    top_p=0.95,
-    top_k=30
+    top_p=0.95
+)
+
+# Initialize GPT
+gpt = ChatOpenAI(
+    model_name="gpt-4.1-mini-2025-04-14",
+    temperature=0.2,
+    top_p=0.95
 )
 
 # Initialize Gemini LLM
 gemini = ChatGoogleGenerativeAI(
-    model=model_name,  # Same model as main LLM
+    model='gemini-flash-2.0-001',  # Same model as main LLM
     google_api_key=gemini_api_key,
     temperature=0.01,
     max_output_tokens=2048,
@@ -150,7 +156,7 @@ wiki_agent = create_react_agent(
 # Create supervisor workflow
 workflow = create_supervisor(
     [search_agent, code_agent, wiki_agent],
-    model=gpt,
+    model=o3,
     prompt=("""
         You are a word-class team supervisor managing a team of agents, including:
         - search_agent (uses Tavily web search for real-time information), 
