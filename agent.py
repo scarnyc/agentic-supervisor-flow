@@ -32,8 +32,6 @@ from langchain_openai import ChatOpenAI
 # Module for setting up Google Gen AI
 from google import genai
 from langchain_google_genai import ChatGoogleGenerativeAI
-from google.genai.types import (Tool, GenerateContentConfig, 
-    GoogleSearch, ThinkingConfig, ToolCodeExecution)
 
 # Module for setting up Anthropic's Claude
 from langchain_anthropic import ChatAnthropic
@@ -53,9 +51,8 @@ from langchain_community.tools.tavily_search.tool import TavilySearchResults
 from prompt import get_enhanced_supervisor_prompt
 
 # Import CodeAct related modules
-from langgraph_codeact import CodeActGraph, codeact_default_condition, make_codeact_llm
-from langchain_sandbox import sandbox_exec_node
-from langchain_sandbox.subprocess_sandbox import SubprocessSandbox
+from langgraph_codeact import create_codeact
+from langchain_sandbox import PyodideSandboxTool
 
 # Load the .env file
 load_dotenv()
@@ -261,38 +258,24 @@ def get_workflow_app():
         model='gemini-2.0-flash-001',
         google_api_key=gemini_api_key,
         temperature=0.01,
-        max_output_tokens=2048,
-        model_kwargs={ 
-            "tools": [Tool(code_execution=ToolCodeExecution())],
-            "tool_config": {"function_calling_config": {"mode": "AUTO"}}
-        }
+        max_output_tokens=2048
     )
     
     # Initialize Claude LLM specifically for code execution
     claude = ChatAnthropic(
         model_name="claude-3-7-sonnet-20240229",
         anthropic_api_key=anthropic_api_key,
-        temperature=0.1,
+        temperature=0.01,
         max_tokens=4096
     )
     
     # Create sandbox for secure code execution
-    sandbox = SubprocessSandbox(
-        timeout=30,  # 30 second timeout
-        read_only=True,  # No file writing
-        packages=[],  # Whitelist of packages - empty list means all available
-        log_user_code=True  # Log the user code for debugging
+    sandbox = PyodideSandbox(
+       "./sessions", # Directory to store session files
+       # Allow Pyodide to install python packages that
+       # might be required.
+       allow_net=True,
     )
-    
-    # Create CodeAct LLM wrapper for Claude
-    codeact_llm = make_codeact_llm(claude)
-    
-    # Create the CodeAct graph with sandbox
-    codeact_graph = CodeActGraph(
-        llm=codeact_llm,
-        exec_node=sandbox_exec_node(),
-        condition=codeact_default_condition,
-    ).compile()
 
     # Initiate Tavily Search with enhanced configuration:
     tavily_search = TavilySearchResults(
@@ -354,8 +337,8 @@ def get_workflow_app():
 
     # Create a system to route code queries to the Claude CodeAct system
     code_agent = create_react_agent(
-        model=gpt,
-        tools=[],
+        model=claude,
+        tools=[PyodideSandboxTool()],
         name="code_agent",
         prompt="""
         You are an expert AI code assistant powered by Claude 3.7 Sonnet.
