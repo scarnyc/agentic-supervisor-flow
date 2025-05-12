@@ -7,10 +7,9 @@
     --primary-color: #bb86fc;
     --user-message-bg: #333333;
     --assistant-message-bg: #1a1a1a;
-    --error-color: #cf6679;
-    --warning-color: #ffb74d;
-    --success-color: #81c784;
-    --system-message-bg: #2d3748;
+    --search-tool-color: #4285f4;
+    --code-tool-color: #34a853;
+    --wiki-tool-color: #fbbc05;
 }
 
 * {
@@ -39,7 +38,6 @@ body {
     display: flex;
     flex-direction: column;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    position: relative; /* For error banner positioning */
 }
 
 .chat-header {
@@ -91,14 +89,6 @@ body {
     border-bottom-left-radius: 4px;
 }
 
-.system {
-    background-color: var(--system-message-bg);
-    align-self: center;
-    width: 100%;
-    text-align: center;
-    font-style: italic;
-}
-
 .message-content p {
     margin-bottom: 8px;
 }
@@ -148,22 +138,6 @@ body {
     justify-content: center;
     background-color: var(--primary-color);
     color: var(--bg-color);
-    transition: background-color 0.2s, transform 0.2s;
-}
-
-#send-btn:hover {
-    background-color: #a56df2;
-    transform: scale(1.05);
-}
-
-#send-btn:active {
-    transform: scale(0.95);
-}
-
-#send-btn:disabled {
-    background-color: #4e4e4e;
-    cursor: not-allowed;
-    opacity: 0.7;
 }
 
 .chat-footer {
@@ -280,138 +254,125 @@ code {
     border-radius: 3px;
 }
 
-/* Error and status indicators */
-.error-banner {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    background-color: var(--error-color);
-    color: white;
-    padding: 10px;
-    text-align: center;
-    z-index: 1000;
-    font-weight: bold;
-}
-
-.connection-status {
-    position: absolute;
-    bottom: 60px; /* Above the input area */
-    left: 0;
-    right: 0;
-    background-color: var(--warning-color);
-    color: #333;
-    padding: 8px;
-    text-align: center;
-    font-size: 14px;
-    z-index: 500;
-}
-
-/* Loading indicator */
-.loading-indicator {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.8);
-    color: white;
+/* Tool indicator styles */
+.tool-indicator {
+    max-width: 300px;
+    background-color: rgba(40, 40, 40, 0.8);
+    border-radius: 20px;
+    padding: 10px 15px;
+    margin: 10px 0;
     display: flex;
+    align-items: center;
+}
+
+.tool-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tool-icon {
+    font-size: 1.2em;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
     justify-content: center;
-    align-items: center;
-    z-index: 2000;
-    font-size: 18px;
+    border-radius: 50%;
+    color: #fff;
 }
 
-/* Tool usage message styling */
-.tool-usage-message {
-    font-style: italic;
-    background-color: var(--header-bg);
-    color: var(--primary-color);
-    padding: 8px 12px;
-    margin: 8px 0;
-    border-radius: 12px;
+.tool-search .tool-icon {
+    background-color: var(--search-tool-color);
+}
+
+.tool-code .tool-icon {
+    background-color: var(--code-tool-color);
+}
+
+.tool-wiki .tool-icon {
+    background-color: var(--wiki-tool-color);
+}
+
+.tool-text {
     font-size: 0.9em;
-    display: flex;
-    align-items: center;
-    width: fit-content;
-    max-width: 80%;
-    align-self: flex-start;
+    color: #ddd;
 }
 
-/* Tool icons */
-.tool-usage-message::before {
-    content: '';
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    margin-right: 8px;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
+.tool-dots {
+    display: inline-flex;
 }
 
-/* Web Search Tool icon */
-.tool-usage-message.search::before {
-    content: '🔎';
+.tool-dots span {
+    animation: dots 1.5s infinite;
+    font-size: 1.2em;
+    line-height: 0.7;
 }
 
-/* Wikipedia Tool icon */
-.tool-usage-message.wiki::before {
-    content: '📚';
+.tool-dots span:nth-child(2) {
+    animation-delay: 0.2s;
 }
 
-/* Code Execution Tool icon */
-.tool-usage-message.code::before {
-    content: '💻';
+.tool-dots span:nth-child(3) {
+    animation-delay: 0.4s;
 }
 
-/* Thinking icon */
-.tool-usage-message.thinking::before {
-    content: '🧠';
+@keyframes dots {
+    0%, 80%, 100% { opacity: 0; }
+    40% { opacity: 1; }
 }
 
-/* Animation for tool usage messages */
-@keyframes pulse {
-    0% { opacity: 0.7; }
-    50% { opacity: 1; }
-    100% { opacity: 0.7; }
+/* Additional styling for specific language code blocks */
+.language-python {
+    color: #3572A5;
 }
 
-.tool-usage-message {
-    animation: pulse 1.5s infinite ease-in-out;
+.language-javascript {
+    color: #f7df1e;
 }
 
-/* Responsive adjustments */
-@media (max-width: 850px) {
-    .chat-container {
-        max-width: 95%;
-        height: 90vh;
-    }
-    
-    .logo-container {
-        width: 80%;
-    }
+.language-html {
+    color: #e34c26;
 }
 
-@media (max-width: 500px) {
-    .chat-header {
-        height: 70px;
-    }
-    
-    .message {
-        max-width: 90%;
-    }
-    
-    #chat-input {
-        padding: 12px 15px;
-    }
+.language-css {
+    color: #563d7c;
 }
 
-/* For when JS fails to load */
-noscript .message {
-    background-color: var(--error-color);
+/* Fade in animation for new messages */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.message {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Styling for specific agent transfer tags */
+.search-agent-tag {
+    background-color: var(--search-tool-color);
     color: white;
-    align-self: center;
-    width: 90%;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    margin-right: 5px;
+}
+
+.code-agent-tag {
+    background-color: var(--code-tool-color);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    margin-right: 5px;
+}
+
+.wiki-agent-tag {
+    background-color: var(--wiki-tool-color);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    margin-right: 5px;
 }

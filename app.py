@@ -1,29 +1,21 @@
-from fastapi import FastAPI, WebSocket, HTTPException, WebSocketDisconnect, Request
+from fastapi import FastAPI, WebSocket, HTTPException, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field
-from typing import Dict, Optional, List, Any, Union
+from pydantic import BaseModel
+from typing import Dict, Optional, List
 import uuid
 import json
 import os
 import traceback
-import logging
 from agent import get_workflow_app, process_citations
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
+# Import Request for type annotation
+from fastapi import Request
 
 # Initialize FastAPI
-app = FastAPI(title="CopilotKit API")
+app = FastAPI(title="Agentic API")
 
 # Add CORS middleware
 app.add_middleware(
@@ -41,13 +33,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 # Get the LangGraph workflow app
-try:
-    workflow_app = get_workflow_app()
-    logger.info("Successfully initialized workflow app")
-except Exception as e:
-    logger.error(f"Failed to initialize workflow app: {e}")
-    traceback.print_exc()
-    raise RuntimeError("Failed to initialize agent workflow. Check configuration and API keys.")
+workflow_app = get_workflow_app()
 
 # Store active websocket connections
 active_connections: Dict[str, WebSocket] = {}
@@ -57,52 +43,32 @@ sessions: Dict[str, Dict] = {}
 # Models
 class ChatMessage(BaseModel):
     role: str
-    content: str = Field(..., min_length=1)  # Ensure content is not empty
+    content: str
 
 class ChatRequest(BaseModel):
     session_id: Optional[str] = None
-    message: str = Field(..., min_length=1)  # Ensure message is not empty
+    message: str
 
 class ChatResponse(BaseModel):
     session_id: str
     messages: List[ChatMessage]
 
-# Error handler for unexpected exceptions
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled exception: {exc}")
-    traceback.print_exc()
-    return HTMLResponse(
-        content="<h1>Internal Server Error</h1><p>The server encountered an unexpected error.</p>",
-        status_code=500
-    )
-
 # Routes
 @app.get("/", response_class=HTMLResponse)
 async def get_root(request: Request):
-    try:
-        return templates.TemplateResponse("index.html", {"request": request})
-    except Exception as e:
-        logger.error(f"Error rendering index template: {e}")
-        raise HTTPException(status_code=500, detail="Failed to render index page")
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(chat_request: ChatRequest):
     # Create or get session
     session_id = chat_request.session_id or str(uuid.uuid4())
-    
-    # Create session if doesn't exist
     if session_id not in sessions:
         sessions[session_id] = {"messages": []}
     
     # Add user message to session
-    try:
-        sessions[session_id]["messages"].append(
-            ChatMessage(role="user", content=chat_request.message)
-        )
-    except Exception as e:
-        logger.error(f"Error adding user message to session: {e}")
-        raise HTTPException(status_code=400, detail="Invalid message format")
+    sessions[session_id]["messages"].append(
+        ChatMessage(role="user", content=chat_request.message)
+    )
     
     try:
         # Get response from workflow
@@ -118,7 +84,7 @@ async def chat(chat_request: ChatRequest):
         # Extract assistant's response
         assistant_message = None
         for value in result.values():
-            if isinstance(value, dict) and "messages" in value and value["messages"]:
+            if "messages" in value and value["messages"]:
                 # Get the last message from the assistant
                 last_message = value["messages"][-1]
                 
@@ -140,12 +106,11 @@ async def chat(chat_request: ChatRequest):
             )
     
     except Exception as e:
-        logger.error(f"Error in /api/chat endpoint: {e}")
+        print(f"Error in /api/chat endpoint: {e}")
         traceback.print_exc()
         # Add error message to session
-        error_message = "Sorry, I encountered an error processing your request."
         sessions[session_id]["messages"].append(
-            ChatMessage(role="assistant", content=error_message)
+            ChatMessage(role="assistant", content="Sorry, I encountered an error processing your request.")
         )
     
     # Return the full conversation history
@@ -153,35 +118,6 @@ async def chat(chat_request: ChatRequest):
         session_id=session_id,
         messages=sessions[session_id]["messages"]
     )
-
-# Safely handle message parsing from WebSocket
-def parse_websocket_message(data: str) -> dict:
-    """Parse WebSocket message with error handling"""
-    try:
-        message_data = json.loads(data)
-        return message_data
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid WebSocket message format: {e}")
-        return {"error": "Invalid message format"}
-
-# Safely extract content from workflow result
-def extract_content_from_result(result: Any) -> str:
-    """Extract content from workflow result with error handling"""
-    try:
-        for value in result.values():
-            if isinstance(value, dict) and "messages" in value and value["messages"]:
-                last_message = value["messages"][-1]
-                
-                if hasattr(last_message, 'content'):
-                    return last_message.content
-                elif isinstance(last_message, tuple) and len(last_message) > 1:
-                    return last_message[1]
-                else:
-                    return str(last_message)
-        return "I couldn't process that request properly."
-    except Exception as e:
-        logger.error(f"Error extracting content from result: {e}")
-        return "Sorry, I encountered an error processing your request."
 
 # WebSocket endpoint for streaming responses
 @app.websocket("/api/chat/ws/{session_id}")
@@ -198,187 +134,174 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
     try:
         while True:
             # Wait for messages from the client
+            data = await websocket.receive_text()
+            message_data = json.loads(data)
+            user_message = message_data.get("message", "")
+            
+            # Add user message to session
+            sessions[session_id]["messages"].append(
+                ChatMessage(role="user", content=user_message)
+            )
+            
+            # Send acknowledgment
+            await websocket.send_json({
+                "type": "message_received",
+                "message": {
+                    "role": "user",
+                    "content": user_message
+                }
+            })
+            
+            # Start a partial response
+            partial_response = ""
+            
             try:
-                data = await websocket.receive_text()
-                message_data = parse_websocket_message(data)
+                # Stream response from workflow
+                config = {"configurable": {"thread_id": session_id}}
                 
-                if "error" in message_data:
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": {
-                            "role": "system",
-                            "content": "Invalid message format received."
-                        }
-                    })
-                    continue
-                
-                user_message = message_data.get("message", "")
-                if not user_message.strip():
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": {
-                            "role": "system",
-                            "content": "Message cannot be empty."
-                        }
-                    })
-                    continue
-                
-                # Add user message to session
-                sessions[session_id]["messages"].append(
-                    ChatMessage(role="user", content=user_message)
-                )
-                
-                # Send acknowledgment
-                await websocket.send_json({
-                    "type": "message_received",
-                    "message": {
-                        "role": "user",
-                        "content": user_message
-                    }
-                })
-                
-                # Start a partial response
-                partial_response = ""
-                
-                try:
-                    # Stream response from workflow
-                    config = {"configurable": {"thread_id": session_id}}
-                    
-                    # Stream the events in the graph
-                    for event in workflow_app.stream(
-                        {"messages": [("user", user_message)]},
-                        config
-                    ):
-                        # Process each event
-                        for value in event.values():
-                            if isinstance(value, dict) and "messages" in value and value["messages"]:
-                                try:
-                                    # Get the last message
-                                    last_message = value["messages"][-1]
-                                    
-                                    # Debug logging (with sensitive info redacted)
-                                    logger.debug(f"Message type: {type(last_message)}")
-                                    
-                                    # Extract content based on message type
-                                    if hasattr(last_message, 'content'):
-                                        new_content = last_message.content
-                                    elif isinstance(last_message, tuple) and len(last_message) > 1:
-                                        new_content = last_message[1]
-                                    else:
-                                        new_content = str(last_message)
-                                    
-                                    # Ensure content is a string
-                                    if not isinstance(new_content, str):
-                                        new_content = str(new_content)
-                                    
-                                    # Process citations in the new content
-                                    new_content = process_citations({"messages": [("assistant", new_content)]})
-                                    if isinstance(new_content, dict) and "messages" in new_content and new_content["messages"]:
-                                        new_content = new_content["messages"][0][1]
-                                    
-                                    # If we have new content, send it as a partial update
-                                    if new_content != partial_response:
-                                        await websocket.send_json({
-                                            "type": "partial_response",
-                                            "message": {
-                                                "role": "assistant",
-                                                "content": new_content
-                                            }
-                                        })
-                                        partial_response = new_content
+                # Stream the events in the graph
+                for event in workflow_app.stream(
+                    {"messages": [("user", user_message)]},
+                    config
+                ):
+                    # Process each event
+                    for value in event.values():
+                        if "messages" in value and value["messages"]:
+                            try:
+                                # Get the last message
+                                last_message = value["messages"][-1]
                                 
-                                except Exception as e:
-                                    # Error handling for message processing
-                                    logger.error(f"Error processing message: {e}")
-                                    traceback.print_exc()
-                                    
-                                    # Notify the client
+                                # Debug logging
+                                print(f"Message type: {type(last_message)}")
+                                if hasattr(last_message, '__dict__'):
+                                    print(f"Message attributes: {last_message.__dict__}")
+                                
+                                # Extract content based on message type
+                                if hasattr(last_message, 'content'):
+                                    # Handle ToolMessage or AIMessage objects
+                                    new_content = last_message.content
+                                elif isinstance(last_message, tuple) and len(last_message) > 1:
+                                    # Handle tuple format (role, content)
+                                    new_content = last_message[1]
+                                else:
+                                    # Fallback - try to convert to string
+                                    new_content = str(last_message)
+                                
+                                # Check for tool/agent indicators to send special UI signals
+                                tool_indicators = {
+                                    "🔍 Searching the web": "search",
+                                    "💻 Setting up code": "code",
+                                    "📚 Checking Wikipedia": "wiki"
+                                }
+                                
+                                is_tool_indicator = False
+                                tool_type = None
+                                
+                                for indicator, tool in tool_indicators.items():
+                                    if new_content.startswith(indicator):
+                                        is_tool_indicator = True
+                                        tool_type = tool
+                                        break
+                                
+                                # If this is a tool indicator, send special message type
+                                if is_tool_indicator and tool_type:
                                     await websocket.send_json({
-                                        "type": "error",
+                                        "type": "tool_usage",
+                                        "tool": tool_type,
                                         "message": {
                                             "role": "system",
-                                            "content": "An error occurred while processing the response."
+                                            "content": new_content
                                         }
                                     })
-                    
-                    # Add final assistant message to session
-                    if partial_response:
-                        sessions[session_id]["messages"].append(
-                            ChatMessage(role="assistant", content=partial_response)
-                        )
-                        
-                        # Send completion message
-                        await websocket.send_json({
-                            "type": "message_complete",
-                            "message": {
-                                "role": "assistant",
-                                "content": partial_response
-                            }
-                        })
+                                # Otherwise send as regular partial response
+                                elif new_content != partial_response:
+                                    await websocket.send_json({
+                                        "type": "partial_response",
+                                        "message": {
+                                            "role": "assistant",
+                                            "content": new_content
+                                        }
+                                    })
+                                    partial_response = new_content
+                            
+                            except Exception as e:
+                                # Error handling for message processing
+                                print(f"Error processing message: {e}")
+                                traceback.print_exc()
+                                
+                                # Notify the client
+                                await websocket.send_json({
+                                    "type": "error",
+                                    "message": {
+                                        "role": "system",
+                                        "content": "An error occurred while processing the response."
+                                    }
+                                })
                 
-                except Exception as e:
-                    # Error handling for workflow streaming
-                    logger.error(f"Error in workflow streaming: {e}")
-                    traceback.print_exc()
-                    
-                    error_message = "Sorry, I encountered an error processing your request."
-                    
-                    # Send error message to client
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": {
-                            "role": "system",
-                            "content": error_message
-                        }
-                    })
-                    
-                    # Add error message to session
+                # Add final assistant message to session
+                if partial_response:
                     sessions[session_id]["messages"].append(
-                        ChatMessage(role="assistant", content=error_message)
+                        ChatMessage(role="assistant", content=partial_response)
                     )
                     
-                    # Send a final message to close the interaction properly
+                    # Send completion message
                     await websocket.send_json({
                         "type": "message_complete",
                         "message": {
                             "role": "assistant",
-                            "content": error_message
+                            "content": partial_response
                         }
                     })
-            
-            except WebSocketDisconnect:
-                # Handle disconnect within the message loop
-                logger.info(f"WebSocket disconnected for session: {session_id}")
-                break
             
             except Exception as e:
-                # Handle other exceptions within the message loop
-                logger.error(f"Error processing WebSocket message: {e}")
+                # Error handling for workflow streaming
+                print(f"Error in workflow streaming: {e}")
                 traceback.print_exc()
                 
-                try:
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": {
-                            "role": "system",
-                            "content": "An error occurred processing your message."
-                        }
-                    })
-                except:
-                    # Connection might be closed
-                    break
+                error_message = "Sorry, I encountered an error processing your request."
+                
+                # Send error message to client
+                await websocket.send_json({
+                    "type": "error",
+                    "message": {
+                        "role": "system",
+                        "content": error_message
+                    }
+                })
+                
+                # Add error message to session
+                sessions[session_id]["messages"].append(
+                    ChatMessage(role="assistant", content=error_message)
+                )
+                
+                # Send a final message to close the interaction properly
+                await websocket.send_json({
+                    "type": "message_complete",
+                    "message": {
+                        "role": "assistant",
+                        "content": error_message
+                    }
+                })
     
     except WebSocketDisconnect:
-        # Remove the connection when disconnected (outer exception handler)
-        logger.info(f"WebSocket disconnected for session: {session_id}")
-    
-    except Exception as e:
-        # Catch-all for any other exceptions in the WebSocket endpoint
-        logger.error(f"Unexpected error in WebSocket connection: {e}")
-        traceback.print_exc()
-    
-    finally:
-        # Clean up: always remove the connection when done
+        # Remove the connection when disconnected
+        print(f"WebSocket disconnected for session: {session_id}")
         if session_id in active_connections:
             del active_connections[session_id]
-        logger.info(f"Cleaned up connection for session: {session_id}")
+    
+    except Exception as e:
+        # Catch-all for any other exceptions
+        print(f"Unexpected error in WebSocket connection: {e}")
+        traceback.print_exc()
+        
+        # Try to send a final error message if possible
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "message": {
+                    "role": "system",
+                    "content": "An unexpected error occurred with the connection."
+                }
+            })
+        except:
+            pass  # Connection might already be closed
