@@ -40,6 +40,7 @@ from prompt import get_enhanced_supervisor_prompt
 
 # Import CodeAct related modules
 from langchain_sandbox import PyodideSandboxTool
+from langgraph_codeact import create_codeact
 
 # Load the .env file
 load_dotenv()
@@ -429,7 +430,7 @@ def get_workflow_app():
                         })
 
                         # Execute with CodeAct
-                        codeact_result = codeact_graph.invoke(
+                        codeact_result = create_codeact.invoke(
                             codeact_states[session_id])
 
                         # Update CodeAct state
