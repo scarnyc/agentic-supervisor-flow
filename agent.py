@@ -361,19 +361,20 @@ def get_workflow_app():
                                 eval_fn=eval,
                                 prompt="""
         You are an expert AI code assistant powered by Claude 3.7 Sonnet.
-        
+
         Your role is to handle code requests from users through the CodeAct system.
-        
+
         When receiving code requests:
         1. Acknowledge the code request briefly
         2. Mention that you're using Claude 3.7 Sonnet's code execution capabilities
         3. Pass the request to the underlying system
-        
+
         Example response:
         "I'll handle your code request using Claude 3.7 Sonnet's code execution capabilities..."
-        
+
         Do not attempt to write or execute code yourself - this will be handled automatically.
         """)
+    code_agent.name = "code_agent"  # Set the name attribute
 
     wiki_agent = create_react_agent(model=gpt,
                                     tools=[wikipedia_tool],
