@@ -14,9 +14,6 @@ from dotenv import load_dotenv
 from typing import Dict, Any
 import re
 import json
-import builtins
-import contextlib
-import io
 
 # Modules for Messages
 from langchain_core.messages import AIMessage
@@ -34,16 +31,15 @@ from langchain_anthropic import ChatAnthropic
 from langgraph_supervisor import create_supervisor
 from langgraph.prebuilt import create_react_agent
 
-# Import Langchain modules
+# Import the modules for saving memory
 from langgraph.checkpoint.memory import MemorySaver
+
+from langchain.tools import tool
 from langchain_community.utilities import WikipediaAPIWrapper
 from langchain_community.tools import WikipediaQueryRun
 from langchain_community.tools.tavily_search.tool import TavilySearchResults
+from langchain_experimental.utilities import PythonREPL
 from prompt import get_enhanced_supervisor_prompt
-
-# Import CodeAct related modules
-from langchain_sandbox import PyodideSandboxTool
-from langgraph_codeact import create_codeact
 
 # Load the .env file
 load_dotenv()
@@ -69,10 +65,10 @@ tavily_tracker = TavilyResultTracker()
 def extract_urls_from_tavily_result(content):
     """
     Extract URLs from Tavily search results content.
-    
+
     Args:
         content: The content string from the agent
-        
+
     Returns:
         List of extracted URLs or empty list if none found
     """
@@ -105,10 +101,10 @@ def extract_urls_from_tavily_result(content):
 def format_citations(content: str) -> str:
     """
     Format citations in the content string.
-    
+
     Args:
         content: The text content to process
-        
+
     Returns:
         The content with properly formatted citations
     """
@@ -162,10 +158,10 @@ def format_citations(content: str) -> str:
 def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
     """
     Post-process the response from agents to ensure proper citation formatting.
-    
+
     Args:
         response: The response dictionary from the agent
-        
+
     Returns:
         The processed response with properly formatted citations
     """
@@ -217,30 +213,11 @@ def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
     return response
 
 
-def eval(code: str, _locals: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-    # Store original keys before execution
-    original_keys = set(_locals.keys())
-
-    try:
-        with contextlib.redirect_stdout(io.StringIO()) as f:
-            exec(code, builtins.__dict__, _locals)
-        result = f.getvalue()
-        if not result:
-            result = "<code ran, no output printed to stdout>"
-    except Exception as e:
-        result = f"Error during execution: {repr(e)}"
-
-    # Determine new variables created during execution
-    new_keys = set(_locals.keys()) - original_keys
-    new_vars = {key: _locals[key] for key in new_keys}
-    return result, new_vars
-
-
 def get_workflow_app():
     """
     Initialize and return the LangGraph workflow application.
     This function handles all the setup for the agents and workflow.
-    
+
     Returns:
         The compiled LangGraph workflow application.
     """
@@ -320,6 +297,14 @@ def get_workflow_app():
     # Print the tool name for debugging
     print(f"Registered Wikipedia tool with name: {wikipedia_tool.name}")
 
+    # You can create the tool to pass to an agent
+    repl_tool = Tool(
+        name="python_repl",
+        description=
+        "A Python shell. Use this to execute python commands. Input should be a valid python command. If you want to see the output of a value, you should print it out with `print(...)`.",
+        func=PythonREPL().run,
+    )
+
     # Enhanced search agent with better citation handling
     search_agent = create_react_agent(model=gemini,
                                       tools=[tavily_search],
@@ -327,39 +312,37 @@ def get_workflow_app():
                                       prompt="""
         You are an expert researcher with access to Tavily Web Search.
         Your role is to search the web for accurate information and present it with proper citations.
-        
+
         When searching the web:
         1. Use the tavily_search_results tool with a specific query parameter
         2. Analyze the search results thoroughly
         3. IMPORTANT: For each source you use, INCLUDE THE SOURCE URL in your response
         4. Format your response with proper citations using <cite> tags
-        
+
         CITATION FORMATTING INSTRUCTIONS (CRITICAL):
         - Every claim based on search results MUST be wrapped in citation tags: <cite index="SOURCE_INDEX">your text here</cite>
         - The SOURCE_INDEX should be formatted as "result_number-sentence_number" (e.g., "0-1" for first result, first sentence)
         - For each search result you reference, include a numbered source list at the end with URLs, like:
-        
+
         Sources:
         [1] https://example.com/page1
         [2] https://example.com/page2
-        
+
         Example of a properly formatted response:
-        
+
         <cite index="0-1">The average temperature in New York in December is 35°F (1.7°C).</cite> <cite index="1-1">Snowfall is common during this month.</cite>
-        
+
         Sources:
         [1] https://weather.com/new-york-climate
         [2] https://nyc.gov/winter-statistics
-        
+
         Format your response carefully following these instructions. This is critical for providing trustworthy information.
         """)
 
-    sandbox_tool = PyodideSandboxTool()
-    sandbox_tool.__name__ = "pyodide_sandbox"  # Add __name__ attribute
-    code_agent = create_codeact(model=claude,
-                                tools=[sandbox_tool],
-                                eval_fn=eval,
-                                prompt="""
+    code_agent = create_react_agent(model=claude,
+                                    tools=[repl_tool],
+                                    name="code_agent",
+                                    prompt="""
         You are an expert AI code assistant powered by Claude 3.7 Sonnet.
 
         Your role is to handle code requests from users through the CodeAct system.
@@ -374,7 +357,6 @@ def get_workflow_app():
 
         Do not attempt to write or execute code yourself - this will be handled automatically.
         """)
-    code_agent.name = "code_agent"  # Set the name attribute
 
     wiki_agent = create_react_agent(model=gpt,
                                     tools=[wikipedia_tool],
@@ -408,203 +390,14 @@ def get_workflow_app():
     original_invoke = app.invoke
     original_stream = app.stream
 
-    # Create wrapped versions of invoke and stream that apply post-processing and handle CodeAct
+    # Create wrapped versions of invoke and stream that apply post-processing
     def invoke_with_post_processing(input_data, config=None):
-        # Extract session ID from config
-        session_id = config.get("configurable", {}).get(
-            "thread_id", "default") if config else "default"
-
-        # Check if this is a code execution request
-        if isinstance(input_data, dict) and "messages" in input_data:
-            last_message = input_data["messages"][-1] if input_data[
-                "messages"] else None
-
-            # Check if the last message contains code keywords
-            is_code_request = False
-            if last_message:
-                content = last_message[1] if isinstance(
-                    last_message, tuple) else last_message.content
-                code_indicators = [
-                    "write a code", "create a program", "write code",
-                    "code that", "write me a", "coding example",
-                    "code example", "python script", "function that",
-                    "class that"
-                ]
-
-                is_code_request = any(indicator in content.lower()
-                                      for indicator in code_indicators)
-
-                # For code requests, get a preliminary result to see if code_agent is triggered
-                if is_code_request:
-                    result = original_invoke(input_data, config)
-
-                    # Check if code_agent was activated
-                    if any("code_agent" in str(val)
-                           for val in result.values()):
-                        # This is a confirmed code request that triggered code_agent
-                        # Process with CodeAct
-                        if session_id not in codeact_states:
-                            codeact_states[session_id] = {"messages": []}
-
-                        # Add the user's message to CodeAct state
-                        codeact_states[session_id]["messages"].append({
-                            "role":
-                            "user",
-                            "content":
-                            content
-                        })
-
-                        # Execute with CodeAct
-                        codeact_result = create_codeact.invoke(
-                            codeact_states[session_id])
-
-                        # Update CodeAct state
-                        codeact_states[session_id] = codeact_result
-
-                        # Extract response
-                        assistant_messages = [
-                            msg for msg in codeact_result["messages"]
-                            if isinstance(msg, dict)
-                            and msg.get("role") == "assistant"
-                        ]
-
-                        if assistant_messages:
-                            assistant_response = assistant_messages[-1][
-                                "content"]
-
-                            # Replace the code_agent result with the CodeAct result
-                            for key in result:
-                                if isinstance(
-                                        result[key],
-                                        dict) and "messages" in result[key]:
-                                    messages = result[key]["messages"]
-                                    for i, msg in enumerate(messages):
-                                        if "code_agent" in str(msg):
-                                            if isinstance(msg, AIMessage):
-                                                result[key]["messages"][
-                                                    i] = AIMessage(
-                                                        content=
-                                                        assistant_response)
-                                            elif isinstance(
-                                                    msg,
-                                                    tuple) and len(msg) > 1:
-                                                result[key]["messages"][i] = (
-                                                    "assistant",
-                                                    assistant_response)
-
-                        return process_citations(result)
-
-                    # If code_agent wasn't triggered, just return the result
-                    return process_citations(result)
-
-        # For non-code requests or code requests that don't trigger code_agent
         result = original_invoke(input_data, config)
         return process_citations(result)
 
     def stream_with_post_processing(input_data, config=None):
-        # Extract session ID from config
-        session_id = config.get("configurable", {}).get(
-            "thread_id", "default") if config else "default"
-
-        # Track if we've detected a code request
-        code_request_detected = False
-        code_agent_triggered = False
-        user_message = ""
-
-        # Check if this is a code execution request
-        if isinstance(input_data, dict) and "messages" in input_data:
-            last_message = input_data["messages"][-1] if input_data[
-                "messages"] else None
-
-            if last_message:
-                user_message = last_message[1] if isinstance(
-                    last_message, tuple) else last_message.content
-                code_indicators = [
-                    "write a code", "create a program", "write code",
-                    "code that", "write me a", "coding example",
-                    "code example", "python script", "function that",
-                    "class that"
-                ]
-
-                code_request_detected = any(indicator in user_message.lower()
-                                            for indicator in code_indicators)
-
-        # Begin streaming
-        accumulating_content = ""
-        codeact_used = False
-
         for event in original_stream(input_data, config):
-            processed_event = process_citations(event)
-
-            # Check if code_agent is triggered during streaming
-            if not code_agent_triggered and code_request_detected:
-                for key, value in processed_event.items():
-                    if isinstance(value, dict) and "messages" in value:
-                        for msg in value["messages"]:
-                            if "code_agent" in str(msg):
-                                code_agent_triggered = True
-                                break
-
-            if code_agent_triggered and not codeact_used:
-                # This is the first event after code agent was triggered
-                codeact_used = True
-
-                # Add the user's message to CodeAct state
-                if session_id not in codeact_states:
-                    codeact_states[session_id] = {"messages": []}
-
-                codeact_states[session_id]["messages"].append({
-                    "role":
-                    "user",
-                    "content":
-                    user_message
-                })
-
-                # Execute with CodeAct - non-streaming for simplicity
-                codeact_result = app.invoke(
-                    codeact_states[session_id])
-
-                # Update CodeAct state
-                codeact_states[session_id] = codeact_result
-
-                # Extract response
-                assistant_messages = [
-                    msg for msg in codeact_result["messages"]
-                    if isinstance(msg, dict) and msg.get("role") == "assistant"
-                ]
-
-                if assistant_messages:
-                    assistant_response = assistant_messages[-1]["content"]
-
-                    # Create a modified event with the CodeAct result
-                    modified_event = {}
-                    for key, value in processed_event.items():
-                        if isinstance(value, dict) and "messages" in value:
-                            modified_messages = []
-                            for msg in value["messages"]:
-                                if "code_agent" in str(msg):
-                                    if isinstance(msg, AIMessage):
-                                        modified_messages.append(
-                                            AIMessage(
-                                                content=assistant_response))
-                                    elif isinstance(msg,
-                                                    tuple) and len(msg) > 1:
-                                        modified_messages.append(
-                                            ("assistant", assistant_response))
-                                else:
-                                    modified_messages.append(msg)
-
-                            new_value = value.copy()
-                            new_value["messages"] = modified_messages
-                            modified_event[key] = new_value
-                        else:
-                            modified_event[key] = value
-
-                    yield modified_event
-                    continue
-
-            # For regular events or if CodeAct wasn't involved
-            yield processed_event
+            yield process_citations(event)
 
     # Replace the methods on the compiled app
     app.invoke = invoke_with_post_processing

@@ -13,6 +13,10 @@ run = ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port 3000"]
 localPort = 3000
 externalPort = 80
 
+[[ports]]
+localPort = 5000
+externalPort = 5000
+
 [workflows]
 runButton = "Run"
 
