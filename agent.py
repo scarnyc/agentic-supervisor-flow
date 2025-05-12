@@ -15,6 +15,7 @@ from typing import Annotated, Dict, List, Union, Callable, Any, Tuple
 from typing_extensions import TypedDict
 from pydantic import BaseModel, Field
 import re
+import json
 from functools import partial
 
 # LangGraph modules for defining graphs
@@ -32,7 +33,7 @@ from langchain_openai import ChatOpenAI
 from google import genai
 from langchain_google_genai import ChatGoogleGenerativeAI
 from google.genai.types import (Tool, GenerateContentConfig, 
-    ThinkingConfig, ToolCodeExecution)
+    GoogleSearch, ThinkingConfig, ToolCodeExecution)
 
 # Modules for creating ReAct agents with Supervisor architecture
 from langgraph_supervisor import create_supervisor
@@ -50,6 +51,111 @@ from prompt import get_enhanced_supervisor_prompt
 
 # Load the .env file
 load_dotenv()
+
+# Class to track Tavily search results
+class TavilyResultTracker:
+    def __init__(self):
+        self.last_results = {}
+    
+    def store_result(self, session_id, results):
+        self.last_results[session_id] = results
+    
+    def get_result(self, session_id):
+        return self.last_results.get(session_id, [])
+
+# Create a global instance of the tracker
+tavily_tracker = TavilyResultTracker()
+
+def extract_urls_from_tavily_result(content):
+    """
+    Extract URLs from Tavily search results content.
+    
+    Args:
+        content: The content string from the agent
+        
+    Returns:
+        List of extracted URLs or empty list if none found
+    """
+    # Look for tool output sections that contain Tavily results
+    tavily_pattern = r"Action: tavily_search_results\s+Action Input: .*?\s+Observation: (.*?)(?:\n\nThought:|$)"
+    tavily_matches = re.findall(tavily_pattern, content, re.DOTALL)
+    
+    urls = []
+    for match in tavily_matches:
+        try:
+            # Try to parse the JSON content from the observation
+            data = json.loads(match.strip())
+            if isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict) and 'url' in item:
+                        urls.append(item['url'])
+            elif isinstance(data, dict) and 'results' in data:
+                for item in data['results']:
+                    if isinstance(item, dict) and 'url' in item:
+                        urls.append(item['url'])
+        except:
+            # Fallback to regex if JSON parsing fails
+            url_pattern = r'https?://[^\s"\')]+' 
+            found_urls = re.findall(url_pattern, match)
+            urls.extend(found_urls)
+    
+    return urls
+
+def format_citations(content: str) -> str:
+    """
+    Format citations in the content string.
+    
+    Args:
+        content: The text content to process
+        
+    Returns:
+        The content with properly formatted citations
+    """
+    # Check if content already has properly formatted citations and sources
+    if "<cite index=" in content and "Sources:" in content:
+        return content
+    
+    # Extract URLs from the content (if they exist in Tavily results)
+    urls = extract_urls_from_tavily_result(content)
+    
+    # Extract information that should be cited
+    search_results_pattern = r"Based on (?:the|my) search (?:results|findings):(.*?)(?:\n\n|$)"
+    search_results_match = re.search(search_results_pattern, content, re.DOTALL | re.IGNORECASE)
+    
+    if search_results_match:
+        search_results_text = search_results_match.group(1).strip()
+        
+        # Replace with properly cited content - cite the whole paragraph for now
+        cited_text = f"<cite index=\"0-1\">{search_results_text}</cite>"
+        
+        # Replace the original text with cited text
+        content = content.replace(search_results_text, cited_text)
+    
+    # Also look for statements that reference sources
+    source_patterns = [
+        r"According to (.*?), (.*?)\.",
+        r"(.*?) reports that (.*?)\.",
+        r"As mentioned in (.*?), (.*?)\."
+    ]
+    
+    for i, pattern in enumerate(source_patterns):
+        for match in re.finditer(pattern, content, re.DOTALL):
+            full_match = match.group(0)
+            if "<cite" not in full_match:  # Avoid double-citing
+                cited_match = f"<cite index=\"{i+1}-1\">{full_match}</cite>"
+                content = content.replace(full_match, cited_match)
+    
+    # Add source URLs if we found any
+    if urls:
+        if "Sources:" not in content:
+            sources_text = "\n\nSources:\n"
+            for i, url in enumerate(urls):
+                sources_text += f"[{i+1}] {url}\n"
+            
+            # Add the sources section
+            content += sources_text
+    
+    return content
 
 def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -86,67 +192,6 @@ def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
     
     response["messages"] = processed_messages
     return response
-
-def format_citations(content: str) -> str:
-    """
-    Format citations in the content string.
-    
-    Args:
-        content: The text content to process
-        
-    Returns:
-        The content with properly formatted citations
-    """
-    # Check if content already has properly formatted citations
-    if "<cite index=" in content:
-        return content
-        
-    # Extract information that should be cited
-    search_results_pattern = r"Based on the search results:(.*?)(?:\n\n|$)"
-    search_results_match = re.search(search_results_pattern, content, re.DOTALL)
-    
-    if not search_results_match:
-        return content
-        
-    search_results_text = search_results_match.group(1).strip()
-    
-    # Replace with properly cited content
-    cited_text = f"<cite index=\"0-1\">{search_results_text}</cite>"
-    
-    # Replace the original text with cited text
-    content = content.replace(search_results_text, cited_text)
-    
-    # Also look for statements that reference sources
-    source_patterns = [
-        r"According to (.*?), (.*?)\.",
-        r"(.*?) reports that (.*?)\.",
-        r"As mentioned in (.*?), (.*?)\."
-    ]
-    
-    for i, pattern in enumerate(source_patterns):
-        for match in re.finditer(pattern, content, re.DOTALL):
-            full_match = match.group(0)
-            if "<cite" not in full_match:  # Avoid double-citing
-                cited_match = f"<cite index=\"{i+1}-1\">{full_match}</cite>"
-                content = content.replace(full_match, cited_match)
-    
-    # Extract and format URLs
-    url_pattern = r"(https?://[^\s]+)"
-    urls = re.findall(url_pattern, content)
-    
-    if urls:
-        sources_text = "\n\nSources:\n"
-        for i, url in enumerate(urls):
-            sources_text += f"[{i+1}] {url}\n"
-        
-        # Remove the URLs from the main content
-        for url in urls:
-            content = content.replace(url, "")
-        
-        # Add the sources section
-        content += sources_text
-    
-    return content
 
 def get_workflow_app():
     """
@@ -195,8 +240,16 @@ def get_workflow_app():
         }
     )
 
-    # initiatilize Tavily Search:
-    tavily_search = TavilySearchResults(api_key=tavily_api_key)
+    # Initiate Tavily Search with enhanced configuration:
+    tavily_search = TavilySearchResults(
+        api_key=tavily_api_key,
+        k=5,  # Number of results
+        include_raw_content=True,  # Include the raw content
+        include_images=False,
+        include_answer=True,
+        max_results=5,
+        search_depth="advanced"
+    )
 
     # Define Wikipedia Tool with explicit name
     api_wrapper = WikipediaAPIWrapper(top_k_results=1)
@@ -221,24 +274,25 @@ def get_workflow_app():
         When searching the web:
         1. Use the tavily_search_results tool with a specific query parameter
         2. Analyze the search results thoroughly
-        3. Provide a clear, concise summary with proper citations
-        4. Include the source URLs in your response
+        3. IMPORTANT: For each source you use, INCLUDE THE SOURCE URL in your response
+        4. Format your response with proper citations using <cite> tags
         
         CITATION FORMATTING INSTRUCTIONS (CRITICAL):
         - Every claim based on search results MUST be wrapped in citation tags: <cite index="SOURCE_INDEX">your text here</cite>
         - The SOURCE_INDEX should be formatted as "result_number-sentence_number" (e.g., "0-1" for first result, first sentence)
-        - For each search result you reference, include the URL at the end of your response
-        - If using multiple sources, use different index numbers
-        - If you're unsure about information, indicate this clearly
-        - Never fabricate citations or sources
-        
-        Example of properly cited response:
-        
-        <cite index="0-1">The average temperature in New York in December is 35°F (1.7°C).</cite> <cite index="1-1">Snowfall is common, with the city receiving approximately 4.8 inches of snow during the month.</cite>
+        - For each search result you reference, include a numbered source list at the end with URLs, like:
         
         Sources:
-        [1] weather.com/new-york-climate
-        [2] nyc.gov/winter-statistics
+        [1] https://example.com/page1
+        [2] https://example.com/page2
+        
+        Example of a properly formatted response:
+        
+        <cite index="0-1">The average temperature in New York in December is 35°F (1.7°C).</cite> <cite index="1-1">Snowfall is common during this month.</cite>
+        
+        Sources:
+        [1] https://weather.com/new-york-climate
+        [2] https://nyc.gov/winter-statistics
         
         Format your response carefully following these instructions. This is critical for providing trustworthy information.
         """
