@@ -20,37 +20,41 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         
         socket.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            
-            if (data.type === 'message_received') {
-                // User message already added, do nothing
-            } else if (data.type === 'partial_response') {
-                // Transform agent transfer messages before displaying
-                let content = transformAgentMessages(data.message.content);
+            try {
+                const data = JSON.parse(event.data);
                 
-                // Only update if there's actual content to show
-                if (content) {
-                    updateAssistantMessage(content);
+                if (data.type === 'message_received') {
+                    // User message already added, do nothing
+                } else if (data.type === 'partial_response') {
+                    // Transform agent transfer messages before displaying
+                    let content = transformAgentMessages(data.message.content);
+                    
+                    // Only update if there's actual content to show
+                    if (content) {
+                        updateAssistantMessage(content);
+                    }
+                } else if (data.type === 'message_complete') {
+                    // Transform agent transfer messages before finalizing
+                    let content = transformAgentMessages(data.message.content);
+                    
+                    // Only update if there's actual content to show
+                    if (content) {
+                        // Finalize assistant's message
+                        updateAssistantMessage(content, true);
+                    }
+                    
+                    // Remove typing indicator if present
+                    const typingIndicator = document.querySelector('.typing-indicator');
+                    if (typingIndicator) {
+                        typingIndicator.remove();
+                    }
+                    
+                    // Also remove any tool usage messages when the response is complete
+                    const toolMessages = document.querySelectorAll('.tool-usage-message');
+                    toolMessages.forEach(msg => msg.remove());
                 }
-            } else if (data.type === 'message_complete') {
-                // Transform agent transfer messages before finalizing
-                let content = transformAgentMessages(data.message.content);
-                
-                // Only update if there's actual content to show
-                if (content) {
-                    // Finalize assistant's message
-                    updateAssistantMessage(content, true);
-                }
-                
-                // Remove typing indicator if present
-                const typingIndicator = document.querySelector('.typing-indicator');
-                if (typingIndicator) {
-                    typingIndicator.remove();
-                }
-                
-                // Also remove any tool usage messages when the response is complete
-                const toolMessages = document.querySelectorAll('.tool-usage-message');
-                toolMessages.forEach(msg => msg.remove());
+            } catch (error) {
+                console.error('Error processing WebSocket message:', error);
             }
         };
         
@@ -137,7 +141,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // If content contains a real message (not just a transfer notification)
-        if (content.length > 30 || content.includes('I found') || content.includes('Here is') || 
+        if (content.length > 30 || 
+            content.includes('I found') || 
+            content.includes('Here is') || 
             content.includes('According to')) {
             // Remove any tool usage indicators when real content appears
             const toolMessages = document.querySelectorAll('.tool-usage-message');
@@ -176,56 +182,76 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Send message via WebSocket if connected
         if (isConnected) {
-            socket.send(JSON.stringify({
-                message: message
-            }));
+            try {
+                socket.send(JSON.stringify({
+                    message: message
+                }));
+            } catch (error) {
+                console.error('Error sending message via WebSocket:', error);
+                // Fallback to REST API if WebSocket fails
+                sendViaRestApi(message);
+            }
         } else {
             // Fallback to REST API if WebSocket not connected
-            fetch('/api/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    session_id: sessionId,
-                    message: message
-                }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Remove typing indicator
-                const typingIndicator = document.querySelector('.typing-indicator');
-                if (typingIndicator) {
-                    typingIndicator.remove();
-                }
-                
-                // Add assistant message
-                const messages = data.messages;
+            sendViaRestApi(message);
+        }
+    }
+    
+    // Send message via REST API (fallback method)
+    function sendViaRestApi(message) {
+        fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                session_id: sessionId,
+                message: message
+            }),
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Remove typing indicator
+            const typingIndicator = document.querySelector('.typing-indicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+            
+            // Add assistant message
+            const messages = data.messages;
+            if (messages && messages.length > 0) {
                 const assistantMessage = messages[messages.length - 1];
-                if (assistantMessage.role === 'assistant') {
+                if (assistantMessage && assistantMessage.role === 'assistant') {
                     // Transform agent messages before displaying
                     let content = transformAgentMessages(assistantMessage.content);
                     if (content) {
                         addMessage('assistant', content);
                     }
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                // Remove typing indicator
-                const typingIndicator = document.querySelector('.typing-indicator');
-                if (typingIndicator) {
-                    typingIndicator.remove();
-                }
-                
-                // Add error message
-                addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
-            });
-        }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // Remove typing indicator
+            const typingIndicator = document.querySelector('.typing-indicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+            
+            // Add error message
+            addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+        });
     }
     
     // Add a message to the chat
     function addMessage(role, content) {
+        if (!content) return null;
+        
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${role}`;
         
@@ -247,6 +273,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Update an existing assistant message or create a new one
     function updateAssistantMessage(content, isFinal = false) {
+        if (!content) return;
+        
         // Remove typing indicator if it exists
         const typingIndicator = document.querySelector('.typing-indicator');
         if (typingIndicator) {
@@ -255,17 +283,20 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let assistantMessage = chatMessages.querySelector('.message.assistant:last-child');
         
-        // If the last message is a user message or there's no assistant message, create a new one
-        if (!assistantMessage || assistantMessage.classList.contains('typing-indicator') || 
-            assistantMessage.nextElementSibling && assistantMessage.nextElementSibling.classList.contains('user')) {
+        // Fix the conditional statement with proper parentheses for clarity
+        if (!assistantMessage || 
+            assistantMessage.classList.contains('typing-indicator') || 
+            (assistantMessage.nextElementSibling && assistantMessage.nextElementSibling.classList.contains('user'))) {
             assistantMessage = addMessage('assistant', content);
         } else {
             // Update existing message
             const messageContent = assistantMessage.querySelector('.message-content');
-            messageContent.innerHTML = formatMessage(content);
-            
-            // Scroll to bottom
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            if (messageContent) {
+                messageContent.innerHTML = formatMessage(content);
+                
+                // Scroll to bottom
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
         }
         
         if (isFinal) {
@@ -286,6 +317,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Format message content with enhanced markdown-like processing and citation handling
     function formatMessage(content) {
+        if (!content) return '';
+        
         // Replace newlines with <br>
         let formatted = content.replace(/\n/g, '<br>');
         
