@@ -11,58 +11,56 @@ import os
 from dotenv import load_dotenv
 
 # Modules for structuring text
-from typing import Annotated, Dict, List, Union, Callable, Any, Tuple
-from typing_extensions import TypedDict
-from pydantic import BaseModel, Field
+from typing import Dict, Any
 import re
 import json
-from functools import partial
-
-# LangGraph modules for defining graphs
-from langgraph.graph import MessagesState, START, END
-from langgraph.graph.message import add_messages
-from langgraph.prebuilt import ToolNode, tools_condition
 
 # Modules for Messages
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage
 
 # Module for setting up OpenAI
 from langchain_openai import ChatOpenAI
 
 # Module for setting up Google Gen AI
-from google import genai
 from langchain_google_genai import ChatGoogleGenerativeAI
+
+# Module for setting up Anthropic's Claude
+from langchain_anthropic import ChatAnthropic
 
 # Modules for creating ReAct agents with Supervisor architecture
 from langgraph_supervisor import create_supervisor
 from langgraph.prebuilt import create_react_agent
 
-# Import the modules for saving memory
+# Import Langchain modules
 from langgraph.checkpoint.memory import MemorySaver
-
-from langchain.tools import tool as LangChainTool
 from langchain_community.utilities import WikipediaAPIWrapper
 from langchain_community.tools import WikipediaQueryRun
-from langchain_community.utilities.tavily_search import TavilySearchAPIWrapper
 from langchain_community.tools.tavily_search.tool import TavilySearchResults
 from prompt import get_enhanced_supervisor_prompt
+
+# Import CodeAct related modules
+from langchain_sandbox import PyodideSandboxTool
 
 # Load the .env file
 load_dotenv()
 
+
 # Class to track Tavily search results
 class TavilyResultTracker:
+
     def __init__(self):
         self.last_results = {}
-    
+
     def store_result(self, session_id, results):
         self.last_results[session_id] = results
-    
+
     def get_result(self, session_id):
         return self.last_results.get(session_id, [])
 
+
 # Create a global instance of the tracker
 tavily_tracker = TavilyResultTracker()
+
 
 def extract_urls_from_tavily_result(content):
     """
@@ -77,7 +75,7 @@ def extract_urls_from_tavily_result(content):
     # Look for tool output sections that contain Tavily results
     tavily_pattern = r"Action: tavily_search_results\s+Action Input: .*?\s+Observation: (.*?)(?:\n\nThought:|$)"
     tavily_matches = re.findall(tavily_pattern, content, re.DOTALL)
-    
+
     urls = []
     for match in tavily_matches:
         try:
@@ -93,11 +91,12 @@ def extract_urls_from_tavily_result(content):
                         urls.append(item['url'])
         except:
             # Fallback to regex if JSON parsing fails
-            url_pattern = r'https?://[^\s"\')]+' 
+            url_pattern = r'https?://[^\s"\')]+'
             found_urls = re.findall(url_pattern, match)
             urls.extend(found_urls)
-    
+
     return urls
+
 
 def format_citations(content: str) -> str:
     """
@@ -112,48 +111,49 @@ def format_citations(content: str) -> str:
     # Check if content already has properly formatted citations and sources
     if "<cite index=" in content and "Sources:" in content:
         return content
-    
+
     # Extract URLs from the content (if they exist in Tavily results)
     urls = extract_urls_from_tavily_result(content)
-    
+
     # Extract information that should be cited
     search_results_pattern = r"Based on (?:the|my) search (?:results|findings):(.*?)(?:\n\n|$)"
-    search_results_match = re.search(search_results_pattern, content, re.DOTALL | re.IGNORECASE)
-    
+    search_results_match = re.search(search_results_pattern, content,
+                                     re.DOTALL | re.IGNORECASE)
+
     if search_results_match:
         search_results_text = search_results_match.group(1).strip()
-        
+
         # Replace with properly cited content - cite the whole paragraph for now
         cited_text = f"<cite index=\"0-1\">{search_results_text}</cite>"
-        
+
         # Replace the original text with cited text
         content = content.replace(search_results_text, cited_text)
-    
+
     # Also look for statements that reference sources
     source_patterns = [
-        r"According to (.*?), (.*?)\.",
-        r"(.*?) reports that (.*?)\.",
+        r"According to (.*?), (.*?)\.", r"(.*?) reports that (.*?)\.",
         r"As mentioned in (.*?), (.*?)\."
     ]
-    
+
     for i, pattern in enumerate(source_patterns):
         for match in re.finditer(pattern, content, re.DOTALL):
             full_match = match.group(0)
             if "<cite" not in full_match:  # Avoid double-citing
                 cited_match = f"<cite index=\"{i+1}-1\">{full_match}</cite>"
                 content = content.replace(full_match, cited_match)
-    
+
     # Add source URLs if we found any
     if urls:
         if "Sources:" not in content:
             sources_text = "\n\nSources:\n"
             for i, url in enumerate(urls):
                 sources_text += f"[{i+1}] {url}\n"
-            
+
             # Add the sources section
             content += sources_text
-    
+
     return content
+
 
 def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -167,12 +167,13 @@ def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
     """
     if "messages" not in response:
         return response
-    
+
     processed_messages = []
-    
+
     for message in response["messages"]:
         # Handle different message types
-        if isinstance(message, AIMessage) or (hasattr(message, 'type') and message.type == 'ai'):
+        if isinstance(message, AIMessage) or (hasattr(message, 'type')
+                                              and message.type == 'ai'):
             # AI message from LLM
             content = message.content
             content = format_citations(content)
@@ -186,16 +187,16 @@ def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
         elif hasattr(message, 'type') and message.type == 'tool':
             # Tool message (from code execution, etc.)
             # Skip processing if it's an internal handoff
-            if (hasattr(message, 'response_metadata') and 
-                ("__handoff_destination" in message.response_metadata or 
-                 "__is_handoff_back" in message.response_metadata)):
+            if (hasattr(message, 'response_metadata')
+                    and ("__handoff_destination" in message.response_metadata
+                         or "__is_handoff_back" in message.response_metadata)):
                 processed_messages.append(message)
                 continue
-            
+
             # For code execution results, format the content
             content = message.content
             content = format_citations(content)
-            
+
             # Preserve the original message but update its content
             message.content = content
             processed_messages.append(message)
@@ -207,9 +208,10 @@ def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
         else:
             # Keep any other message types as-is
             processed_messages.append(message)
-    
+
     response["messages"] = processed_messages
     return response
+
 
 def get_workflow_app():
     """
@@ -230,44 +232,49 @@ def get_workflow_app():
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     if not gemini_api_key:
         print("Warning: GEMINI_API_KEY environment variable not set.")
-        print("Please set the GEMINI_API_KEY environment variable in your .env file")
-        print("You can get an API key from Google AI Studio: https://makersuite.google.com/")
+        print(
+            "Please set the GEMINI_API_KEY environment variable in your .env file"
+        )
+        print(
+            "You can get an API key from Google AI Studio: https://makersuite.google.com/"
+        )
 
     # Initialize Anthropic/Claude
     anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
     if not anthropic_api_key:
         print("Warning: ANTHROPIC_API_KEY environment variable not set.")
-        print("Please set the ANTHROPIC_API_KEY environment variable in your .env file")
-        print("You can get an API key from Anthropic: https://console.anthropic.com/")
+        print(
+            "Please set the ANTHROPIC_API_KEY environment variable in your .env file"
+        )
+        print(
+            "You can get an API key from Anthropic: https://console.anthropic.com/"
+        )
 
     # Initialize Tavily Search
     tavily_api_key = os.getenv("TAVILY_API_KEY")
     if not tavily_api_key:
         print("Warning: TAVILY_API_KEY environment variable not set.")
-        print("Please set the TAVILY_API_KEY environment variable in your .env file")
+        print(
+            "Please set the TAVILY_API_KEY environment variable in your .env file"
+        )
 
     # Initialize GPT
-    gpt = ChatOpenAI(
-        model_name="gpt-4.1-mini-2025-04-14",
-        temperature=0.2,
-        top_p=0.95
-    )
+    gpt = ChatOpenAI(model_name="gpt-4.1-mini-2025-04-14",
+                     temperature=0.2,
+                     top_p=0.95)
 
     # Initialize Gemini LLM
     gemini = ChatGoogleGenerativeAI(
         model='gemini-2.0-flash-001',  # Same model as main LLM
         google_api_key=gemini_api_key,
         temperature=0.01,
-        max_output_tokens=2048
-    )
+        max_output_tokens=2048)
 
     # Initialize Claude LLM specifically for code execution
-    claude = ChatAnthropic(
-        model_name="claude-3-7-sonnet-20240229",
-        anthropic_api_key=anthropic_api_key,
-        temperature=0.01,
-        max_tokens=4096
-    )
+    claude = ChatAnthropic(model_name="claude-3-7-sonnet-20240229",
+                           anthropic_api_key=anthropic_api_key,
+                           temperature=0.01,
+                           max_tokens=4096)
 
     # Initiate Tavily Search with enhanced configuration:
     tavily_search = TavilySearchResults(
@@ -277,8 +284,7 @@ def get_workflow_app():
         include_images=False,
         include_answer=True,
         max_results=5,
-        search_depth="advanced"
-    )
+        search_depth="advanced")
 
     # Define Wikipedia Tool with explicit name
     api_wrapper = WikipediaAPIWrapper(top_k_results=1)
@@ -292,11 +298,10 @@ def get_workflow_app():
     print(f"Registered Wikipedia tool with name: {wikipedia_tool.name}")
 
     # Enhanced search agent with better citation handling
-    search_agent = create_react_agent(
-        model=gemini,
-        tools=[tavily_search],
-        name="search_agent",
-        prompt="""
+    search_agent = create_react_agent(model=gemini,
+                                      tools=[tavily_search],
+                                      name="search_agent",
+                                      prompt="""
         You are an expert researcher with access to Tavily Web Search.
         Your role is to search the web for accurate information and present it with proper citations.
         
@@ -324,14 +329,12 @@ def get_workflow_app():
         [2] https://nyc.gov/winter-statistics
         
         Format your response carefully following these instructions. This is critical for providing trustworthy information.
-        """
-    )
+        """)
 
-    code_agent = create_react_agent(
-        model=claude,
-        tools=[PyodideSandboxTool()],
-        name="code_agent",
-        prompt="""
+    code_agent = create_react_agent(model=claude,
+                                    tools=[PyodideSandboxTool()],
+                                    name="code_agent",
+                                    prompt="""
         You are an expert AI code assistant powered by Claude 3.7 Sonnet.
         
         Your role is to handle code requests from users through the CodeAct system.
@@ -345,14 +348,12 @@ def get_workflow_app():
         "I'll handle your code request using Claude 3.7 Sonnet's code execution capabilities..."
         
         Do not attempt to write or execute code yourself - this will be handled automatically.
-        """
-    )
+        """)
 
-    wiki_agent = create_react_agent(
-        model=gpt,
-        tools=[wikipedia_tool],
-        name="wiki_agent",
-        prompt="""
+    wiki_agent = create_react_agent(model=gpt,
+                                    tools=[wikipedia_tool],
+                                    name="wiki_agent",
+                                    prompt="""
         You are an expert on Wikipedia.
         Search Wikipedia for the user's query and summarize the results.
         For Wikipedia searches: Use the wikipedia_query_run tool.
@@ -361,127 +362,154 @@ def get_workflow_app():
         1. After receiving tool results, analyze them and provide a clear, concise summary.
         2. Only call a tool once for a query unless you explicitly need more information.
         3. Always provide an actual response when you have enough information.
-        """
-    )
+        """)
 
     # Create supervisor workflow
-    workflow = create_supervisor(
-        [search_agent, code_agent, wiki_agent],
-        model=gpt,
-        prompt=get_enhanced_supervisor_prompt(),
-        output_mode="full_history",
-        parallel_tool_calls=False
-    )
+    workflow = create_supervisor([search_agent, code_agent, wiki_agent],
+                                 model=gpt,
+                                 prompt=get_enhanced_supervisor_prompt(),
+                                 output_mode="full_history",
+                                 parallel_tool_calls=False)
 
     # Create memory saver and compile the workflow
     memory = MemorySaver()
-    app = workflow.compile(
-        checkpointer=memory
-    )
-    
+    app = workflow.compile(checkpointer=memory)
+
     # Create a state store for CodeAct sessions
     codeact_states = {}
-    
+
     # Now wrap the compiled app with our post-processing
     original_invoke = app.invoke
     original_stream = app.stream
-    
+
     # Create wrapped versions of invoke and stream that apply post-processing and handle CodeAct
     def invoke_with_post_processing(input_data, config=None):
         # Extract session ID from config
-        session_id = config.get("configurable", {}).get("thread_id", "default") if config else "default"
-        
+        session_id = config.get("configurable", {}).get(
+            "thread_id", "default") if config else "default"
+
         # Check if this is a code execution request
         if isinstance(input_data, dict) and "messages" in input_data:
-            last_message = input_data["messages"][-1] if input_data["messages"] else None
-            
+            last_message = input_data["messages"][-1] if input_data[
+                "messages"] else None
+
             # Check if the last message contains code keywords
             is_code_request = False
             if last_message:
-                content = last_message[1] if isinstance(last_message, tuple) else last_message.content
-                code_indicators = ["write a code", "create a program", "write code", "code that", 
-                                   "write me a", "coding example", "code example", "python script", 
-                                   "function that", "class that"]
-                
-                is_code_request = any(indicator in content.lower() for indicator in code_indicators)
-                
+                content = last_message[1] if isinstance(
+                    last_message, tuple) else last_message.content
+                code_indicators = [
+                    "write a code", "create a program", "write code",
+                    "code that", "write me a", "coding example",
+                    "code example", "python script", "function that",
+                    "class that"
+                ]
+
+                is_code_request = any(indicator in content.lower()
+                                      for indicator in code_indicators)
+
                 # For code requests, get a preliminary result to see if code_agent is triggered
                 if is_code_request:
                     result = original_invoke(input_data, config)
-                    
+
                     # Check if code_agent was activated
-                    if any("code_agent" in str(val) for val in result.values()):
+                    if any("code_agent" in str(val)
+                           for val in result.values()):
                         # This is a confirmed code request that triggered code_agent
                         # Process with CodeAct
                         if session_id not in codeact_states:
                             codeact_states[session_id] = {"messages": []}
-                        
+
                         # Add the user's message to CodeAct state
-                        codeact_states[session_id]["messages"].append(
-                            {"role": "user", "content": content}
-                        )
-                        
+                        codeact_states[session_id]["messages"].append({
+                            "role":
+                            "user",
+                            "content":
+                            content
+                        })
+
                         # Execute with CodeAct
-                        codeact_result = codeact_graph.invoke(codeact_states[session_id])
-                        
+                        codeact_result = codeact_graph.invoke(
+                            codeact_states[session_id])
+
                         # Update CodeAct state
                         codeact_states[session_id] = codeact_result
-                        
+
                         # Extract response
-                        assistant_messages = [msg for msg in codeact_result["messages"] 
-                                             if isinstance(msg, dict) and msg.get("role") == "assistant"]
-                        
+                        assistant_messages = [
+                            msg for msg in codeact_result["messages"]
+                            if isinstance(msg, dict)
+                            and msg.get("role") == "assistant"
+                        ]
+
                         if assistant_messages:
-                            assistant_response = assistant_messages[-1]["content"]
-                            
+                            assistant_response = assistant_messages[-1][
+                                "content"]
+
                             # Replace the code_agent result with the CodeAct result
                             for key in result:
-                                if isinstance(result[key], dict) and "messages" in result[key]:
+                                if isinstance(
+                                        result[key],
+                                        dict) and "messages" in result[key]:
                                     messages = result[key]["messages"]
                                     for i, msg in enumerate(messages):
                                         if "code_agent" in str(msg):
                                             if isinstance(msg, AIMessage):
-                                                result[key]["messages"][i] = AIMessage(content=assistant_response)
-                                            elif isinstance(msg, tuple) and len(msg) > 1:
-                                                result[key]["messages"][i] = ("assistant", assistant_response)
-                        
+                                                result[key]["messages"][
+                                                    i] = AIMessage(
+                                                        content=
+                                                        assistant_response)
+                                            elif isinstance(
+                                                    msg,
+                                                    tuple) and len(msg) > 1:
+                                                result[key]["messages"][i] = (
+                                                    "assistant",
+                                                    assistant_response)
+
                         return process_citations(result)
-                    
+
                     # If code_agent wasn't triggered, just return the result
                     return process_citations(result)
-        
+
         # For non-code requests or code requests that don't trigger code_agent
         result = original_invoke(input_data, config)
         return process_citations(result)
-    
+
     def stream_with_post_processing(input_data, config=None):
         # Extract session ID from config
-        session_id = config.get("configurable", {}).get("thread_id", "default") if config else "default"
-        
+        session_id = config.get("configurable", {}).get(
+            "thread_id", "default") if config else "default"
+
         # Track if we've detected a code request
         code_request_detected = False
         code_agent_triggered = False
         user_message = ""
-        
+
         # Check if this is a code execution request
         if isinstance(input_data, dict) and "messages" in input_data:
-            last_message = input_data["messages"][-1] if input_data["messages"] else None
-            
+            last_message = input_data["messages"][-1] if input_data[
+                "messages"] else None
+
             if last_message:
-                user_message = last_message[1] if isinstance(last_message, tuple) else last_message.content
-                code_indicators = ["write a code", "create a program", "write code", "code that", 
-                                   "write me a", "coding example", "code example", "python script", 
-                                   "function that", "class that"]
-                
-                code_request_detected = any(indicator in user_message.lower() for indicator in code_indicators)
-        
+                user_message = last_message[1] if isinstance(
+                    last_message, tuple) else last_message.content
+                code_indicators = [
+                    "write a code", "create a program", "write code",
+                    "code that", "write me a", "coding example",
+                    "code example", "python script", "function that",
+                    "class that"
+                ]
+
+                code_request_detected = any(indicator in user_message.lower()
+                                            for indicator in code_indicators)
+
         # Begin streaming
         accumulating_content = ""
         codeact_used = False
-        
+
         for event in original_stream(input_data, config):
             processed_event = process_citations(event)
-            
+
             # Check if code_agent is triggered during streaming
             if not code_agent_triggered and code_request_detected:
                 for key, value in processed_event.items():
@@ -490,32 +518,38 @@ def get_workflow_app():
                             if "code_agent" in str(msg):
                                 code_agent_triggered = True
                                 break
-            
+
             if code_agent_triggered and not codeact_used:
                 # This is the first event after code agent was triggered
                 codeact_used = True
-                
+
                 # Add the user's message to CodeAct state
                 if session_id not in codeact_states:
                     codeact_states[session_id] = {"messages": []}
-                
-                codeact_states[session_id]["messages"].append(
-                    {"role": "user", "content": user_message}
-                )
-                
+
+                codeact_states[session_id]["messages"].append({
+                    "role":
+                    "user",
+                    "content":
+                    user_message
+                })
+
                 # Execute with CodeAct - non-streaming for simplicity
-                codeact_result = codeact_graph.invoke(codeact_states[session_id])
-                
+                codeact_result = codeact_graph.invoke(
+                    codeact_states[session_id])
+
                 # Update CodeAct state
                 codeact_states[session_id] = codeact_result
-                
+
                 # Extract response
-                assistant_messages = [msg for msg in codeact_result["messages"] 
-                                    if isinstance(msg, dict) and msg.get("role") == "assistant"]
-                
+                assistant_messages = [
+                    msg for msg in codeact_result["messages"]
+                    if isinstance(msg, dict) and msg.get("role") == "assistant"
+                ]
+
                 if assistant_messages:
                     assistant_response = assistant_messages[-1]["content"]
-                    
+
                     # Create a modified event with the CodeAct result
                     modified_event = {}
                     for key, value in processed_event.items():
@@ -524,26 +558,30 @@ def get_workflow_app():
                             for msg in value["messages"]:
                                 if "code_agent" in str(msg):
                                     if isinstance(msg, AIMessage):
-                                        modified_messages.append(AIMessage(content=assistant_response))
-                                    elif isinstance(msg, tuple) and len(msg) > 1:
-                                        modified_messages.append(("assistant", assistant_response))
+                                        modified_messages.append(
+                                            AIMessage(
+                                                content=assistant_response))
+                                    elif isinstance(msg,
+                                                    tuple) and len(msg) > 1:
+                                        modified_messages.append(
+                                            ("assistant", assistant_response))
                                 else:
                                     modified_messages.append(msg)
-                            
+
                             new_value = value.copy()
                             new_value["messages"] = modified_messages
                             modified_event[key] = new_value
                         else:
                             modified_event[key] = value
-                    
+
                     yield modified_event
                     continue
-            
+
             # For regular events or if CodeAct wasn't involved
             yield processed_event
-    
+
     # Replace the methods on the compiled app
     app.invoke = invoke_with_post_processing
     app.stream = stream_with_post_processing
-    
+
     return app
