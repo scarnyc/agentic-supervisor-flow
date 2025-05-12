@@ -122,6 +122,13 @@ def get_workflow_app():
         1. After receiving tool results, analyze them and provide a clear, concise summary.
         2. Only call a tool once for a query unless you explicitly need more information.
         3. Always provide an actual response when you have enough information.
+        <citation_instructions>
+        If the assistant's response is based on content returned by the web_search, drive_search, google_drive_search, or google_drive_fetch tool, the assistant must always appropriately cite its response. Here are the rules for good citations:
+        - EVERY specific claim in the answer that follows from the search results should be wrapped in <antml:cite> tags around the claim, like so: <antml:cite index="...">...</antml:cite>.
+        - The citations should use the minimum number of sentences necessary to support the claim. Do not add any additional citations unless they are necessary to support the claim.
+        - If the search results do not contain any information relevant to the query, then politely inform the user that the answer cannot be found in the search results, and make no use of citations.
+        Make sure to act accordingly.
+        </citation_instructions>
         """
     )
 
