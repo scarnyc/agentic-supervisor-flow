@@ -159,13 +159,14 @@ def format_citations(content: str) -> str:
 
 def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Post-process the response from the search agent to ensure proper citation formatting.
+    Post-process the response from the search agent to ensure proper citation formatting
+    and transform agent transfer messages.
     
     Args:
         response: The response dictionary from the search agent
         
     Returns:
-        The processed response with properly formatted citations
+        The processed response with properly formatted citations and user-friendly agent messages
     """
     if "messages" not in response:
         return response
@@ -179,6 +180,26 @@ def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
             
             # Process citations
             content = format_citations(content)
+            
+            # Transform agent transfer messages at the backend level for consistency
+            # This provides a backup in case the frontend transformation doesn't catch all cases
+            agent_transfer_patterns = [
+                (r"Successfully transferred to search_agent", "Using Web Search Tool..."),
+                (r"transferred to search_agent", "Using Web Search Tool..."),
+                (r"Successfully transferred to wiki_agent", "Using Wikipedia Tool..."),
+                (r"transferred to wiki_agent", "Using Wikipedia Tool..."),
+                (r"Successfully transferred to code_agent", "Using Code Execution Tool..."),
+                (r"transferred to code_agent", "Using Code Execution Tool..."),
+                (r"Successfully transferred back to supervisor", "Thinking..."),
+                (r"transferred back to supervisor", "Thinking..."),
+                (r"^search_agent$", "Using Web Search Tool..."),
+                (r"^wiki_agent$", "Using Wikipedia Tool..."),
+                (r"^code_agent$", "Using Code Execution Tool..."),
+                (r"^supervisor$", "Thinking...")
+            ]
+            
+            for pattern, replacement in agent_transfer_patterns:
+                content = re.sub(pattern, replacement, content)
             
             # Recreate the message with the updated content
             if isinstance(message, AIMessage):

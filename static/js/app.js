@@ -25,17 +25,32 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.type === 'message_received') {
                 // User message already added, do nothing
             } else if (data.type === 'partial_response') {
-                // Update or create assistant's message
-                updateAssistantMessage(data.message.content);
+                // Transform agent transfer messages before displaying
+                let content = transformAgentMessages(data.message.content);
+                
+                // Only update if there's actual content to show
+                if (content) {
+                    updateAssistantMessage(content);
+                }
             } else if (data.type === 'message_complete') {
-                // Finalize assistant's message
-                updateAssistantMessage(data.message.content, true);
+                // Transform agent transfer messages before finalizing
+                let content = transformAgentMessages(data.message.content);
+                
+                // Only update if there's actual content to show
+                if (content) {
+                    // Finalize assistant's message
+                    updateAssistantMessage(content, true);
+                }
                 
                 // Remove typing indicator if present
                 const typingIndicator = document.querySelector('.typing-indicator');
                 if (typingIndicator) {
                     typingIndicator.remove();
                 }
+                
+                // Also remove any tool usage messages when the response is complete
+                const toolMessages = document.querySelectorAll('.tool-usage-message');
+                toolMessages.forEach(msg => msg.remove());
             }
         };
         
@@ -51,6 +66,93 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('WebSocket error:', error);
             socket.close();
         };
+    }
+    
+    // Function to display a tool usage indicator
+    function displayToolUsage(toolType) {
+        // Remove any existing tool usage messages
+        const existingToolMessages = document.querySelectorAll('.tool-usage-message');
+        existingToolMessages.forEach(msg => msg.remove());
+        
+        // Create new tool usage message
+        const toolMessage = document.createElement('div');
+        toolMessage.className = `tool-usage-message ${toolType}`;
+        
+        // Set message text based on tool type
+        switch(toolType) {
+            case 'search':
+                toolMessage.textContent = 'Using Web Search Tool...';
+                break;
+            case 'wiki':
+                toolMessage.textContent = 'Using Wikipedia Tool...';
+                break;
+            case 'code':
+                toolMessage.textContent = 'Using Code Execution Tool...';
+                break;
+            case 'thinking':
+                toolMessage.textContent = 'Thinking...';
+                break;
+            default:
+                toolMessage.textContent = 'Processing...';
+        }
+        
+        // Add to chat messages
+        chatMessages.appendChild(toolMessage);
+        
+        // Scroll to bottom
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // Return the created element so it can be removed later
+        return toolMessage;
+    }
+    
+    // Function to transform agent transfer messages into user-friendly messages
+    function transformAgentMessages(content) {
+        if (!content) return content;
+        
+        // Check for agent transfer messages and display appropriate tool usage indicators
+        if (content.includes('transferred to search_agent') || content === 'search_agent' || 
+            content === 'Using Web Search Tool...') {
+            displayToolUsage('search');
+            // Return empty string to prevent showing the technical message
+            return '';
+        }
+        
+        if (content.includes('transferred to wiki_agent') || content === 'wiki_agent' || 
+            content === 'Using Wikipedia Tool...') {
+            displayToolUsage('wiki');
+            return '';
+        }
+        
+        if (content.includes('transferred to code_agent') || content === 'code_agent' || 
+            content === 'Using Code Execution Tool...') {
+            displayToolUsage('code');
+            return '';
+        }
+        
+        if (content.includes('transferred back to supervisor') || content === 'supervisor' || 
+            content === 'Thinking...') {
+            displayToolUsage('thinking');
+            return '';
+        }
+        
+        // If content contains a real message (not just a transfer notification)
+        if (content.length > 30 || content.includes('I found') || content.includes('Here is') || 
+            content.includes('According to')) {
+            // Remove any tool usage indicators when real content appears
+            const toolMessages = document.querySelectorAll('.tool-usage-message');
+            toolMessages.forEach(msg => msg.remove());
+            
+            // Keep the actual content
+            return content;
+        }
+        
+        // For other transfer messages or short notifications, hide them
+        if (content.length < 30) {
+            return '';
+        }
+        
+        return content;
     }
     
     // Initialize WebSocket connection
@@ -101,7 +203,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const messages = data.messages;
                 const assistantMessage = messages[messages.length - 1];
                 if (assistantMessage.role === 'assistant') {
-                    addMessage('assistant', assistantMessage.content);
+                    // Transform agent messages before displaying
+                    let content = transformAgentMessages(assistantMessage.content);
+                    if (content) {
+                        addMessage('assistant', content);
+                    }
                 }
             })
             .catch(error => {
