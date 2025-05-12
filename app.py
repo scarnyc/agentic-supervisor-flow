@@ -9,7 +9,7 @@ import uuid
 import json
 import os
 import traceback
-from agent import get_workflow_app
+from agent import get_workflow_app, process_citations
 
 # Import Request for type annotation
 from fastapi import Request
@@ -77,6 +77,9 @@ async def chat(chat_request: ChatRequest):
             {"messages": [("user", chat_request.message)]}, 
             config
         )
+        
+        # Process citations (redundant but just to be safe)
+        result = process_citations(result)
         
         # Extract assistant's response
         assistant_message = None
@@ -184,6 +187,11 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                 else:
                                     # Fallback - try to convert to string
                                     new_content = str(last_message)
+                                
+                                # Process citations in the new content
+                                new_content = process_citations({"messages": [("assistant", new_content)]})
+                                if "messages" in new_content and new_content["messages"]:
+                                    new_content = new_content["messages"][0][1]
                                 
                                 # If we have new content, send it as a partial update
                                 if new_content != partial_response:

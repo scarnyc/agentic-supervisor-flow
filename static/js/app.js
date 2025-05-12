@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
     
-    // Format message content with enhanced markdown-like processing
+    // Format message content with enhanced markdown-like processing and citation handling
     function formatMessage(content) {
         // Replace newlines with <br>
         let formatted = content.replace(/\n/g, '<br>');
@@ -200,6 +200,24 @@ document.addEventListener('DOMContentLoaded', function() {
             /(https?:\/\/[^\s]+)/g, 
             '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
         );
+        
+        // Handle citations
+        formatted = formatted.replace(/<cite index="([^"]+)">([^<]+)<\/cite>/g, 
+            '<span class="citation" data-cite-index="$1">$2<sup class="citation-marker">[$1]</sup></span>');
+        
+        // Extract and format sources if they exist
+        const sourcesMatch = formatted.match(/Sources:\s*\n?([\s\S]+)/);
+        if (sourcesMatch) {
+            const sourcesList = sourcesMatch[1].split('\n').filter(s => s.trim().length > 0);
+            const sourcesHtml = sourcesList.map((source, index) => 
+                `<li class="source-item">${source}</li>`).join('');
+            
+            formatted = formatted.replace(/Sources:\s*\n?([\s\S]+)/, 
+                `<div class="sources-section">
+                    <h4>Sources:</h4>
+                    <ol class="sources-list">${sourcesHtml}</ol>
+                </div>`);
+        }
         
         return formatted;
     }

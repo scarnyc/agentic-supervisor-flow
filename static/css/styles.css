@@ -204,6 +204,44 @@ code {
     font-size: 14px;
 }
 
+/* Citation styling */
+.citation {
+    position: relative;
+    border-bottom: 1px dashed var(--primary-color);
+}
+
+.citation-marker {
+    font-size: 0.7em;
+    color: var(--primary-color);
+    vertical-align: super;
+    margin-left: 2px;
+}
+
+.sources-section {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+}
+
+.sources-list {
+    margin-left: 20px;
+    font-size: 0.9em;
+    color: #999;
+}
+
+.source-item {
+    margin-bottom: 5px;
+}
+
+.source-item a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.source-item a:hover {
+    text-decoration: underline;
+}
+
 /* Scrollbar styles */
 .chat-messages::-webkit-scrollbar {
     width: 6px;

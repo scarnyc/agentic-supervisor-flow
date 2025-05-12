@@ -11,17 +11,18 @@ import os
 from dotenv import load_dotenv
 
 # Modules for structuring text
-from typing import Annotated
+from typing import Annotated, Dict, List, Union, Callable, Any, Tuple
 from typing_extensions import TypedDict
-from typing import List, Union, Callable
 from pydantic import BaseModel, Field
+import re
+from functools import partial
 
 # LangGraph modules for defining graphs
 from langgraph.graph import MessagesState, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 
-# Modeules for Messages
+# Modules for Messages
 from langchain_core.messages import AIMessage, HumanMessage
 
 # Module for setting up OpenAI
@@ -31,7 +32,7 @@ from langchain_openai import ChatOpenAI
 from google import genai
 from langchain_google_genai import ChatGoogleGenerativeAI
 from google.genai.types import (Tool, GenerateContentConfig, 
-    GoogleSearch, ThinkingConfig, ToolCodeExecution)
+    ThinkingConfig, ToolCodeExecution)
 
 # Modules for creating ReAct agents with Supervisor architecture
 from langgraph_supervisor import create_supervisor
@@ -49,6 +50,113 @@ from prompt import get_enhanced_supervisor_prompt
 
 # Load the .env file
 load_dotenv()
+
+def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Post-process the response from the search agent to ensure proper citation formatting.
+    
+    Args:
+        response: The response dictionary from the search agent
+        
+    Returns:
+        The processed response with properly formatted citations
+    """
+    if "messages" not in response:
+        return response
+    
+    processed_messages = []
+    
+    for message in response["messages"]:
+        if isinstance(message, AIMessage) or (isinstance(message, tuple) and message[0] == "assistant"):
+            # Extract the content
+            content = message.content if isinstance(message, AIMessage) else message[1]
+            
+            # Process citations
+            content = format_citations(content)
+            
+            # Recreate the message with the updated content
+            if isinstance(message, AIMessage):
+                processed_message = AIMessage(content=content)
+            else:
+                processed_message = ("assistant", content)
+            
+            processed_messages.append(processed_message)
+        else:
+            processed_messages.append(message)
+    
+    response["messages"] = processed_messages
+    return response
+
+def format_citations(content: str) -> str:
+    """
+    Format citations in the content string.
+    
+    Args:
+        content: The text content to process
+        
+    Returns:
+        The content with properly formatted citations
+    """
+    # Check if content already has properly formatted citations
+    if "<cite index=" in content:
+        return content
+        
+    # Extract information that should be cited
+    search_results_pattern = r"Based on the search results:(.*?)(?:\n\n|$)"
+    search_results_match = re.search(search_results_pattern, content, re.DOTALL)
+    
+    if not search_results_match:
+        return content
+        
+    search_results_text = search_results_match.group(1).strip()
+    
+    # Replace with properly cited content
+    cited_text = f"<cite index=\"0-1\">{search_results_text}</cite>"
+    
+    # Replace the original text with cited text
+    content = content.replace(search_results_text, cited_text)
+    
+    # Also look for statements that reference sources
+    source_patterns = [
+        r"According to (.*?), (.*?)\.",
+        r"(.*?) reports that (.*?)\.",
+        r"As mentioned in (.*?), (.*?)\."
+    ]
+    
+    for i, pattern in enumerate(source_patterns):
+        for match in re.finditer(pattern, content, re.DOTALL):
+            full_match = match.group(0)
+            if "<cite" not in full_match:  # Avoid double-citing
+                cited_match = f"<cite index=\"{i+1}-1\">{full_match}</cite>"
+                content = content.replace(full_match, cited_match)
+    
+    # Extract and format URLs
+    url_pattern = r"(https?://[^\s]+)"
+    urls = re.findall(url_pattern, content)
+    
+    if urls:
+        sources_text = "\n\nSources:\n"
+        for i, url in enumerate(urls):
+            sources_text += f"[{i+1}] {url}\n"
+        
+        # Remove the URLs from the main content
+        for url in urls:
+            content = content.replace(url, "")
+        
+        # Add the sources section
+        content += sources_text
+    
+    return content
+
+def post_process_workflow_output(output, post_processors=None):
+    """Apply post-processing functions to workflow outputs"""
+    if not post_processors:
+        return output
+        
+    processed_output = output
+    for processor in post_processors:
+        processed_output = processor(processed_output)
+    return processed_output
 
 def get_workflow_app():
     """
@@ -111,24 +219,38 @@ def get_workflow_app():
     # Print the tool name for debugging
     print(f"Registered Wikipedia tool with name: {wikipedia_tool.name}")
 
+    # Enhanced search agent with better citation handling
     search_agent = create_react_agent(
         model=gpt,
         tools=[tavily_search],
         name="search_agent",
         prompt="""
         You are an expert researcher with access to Tavily Web Search.
-        Search for the user's query and summarize the results.
-        When searching the web: Use the tavily_search_results tool with a specific query parameter.
-        1. After receiving tool results, analyze them and provide a clear, concise summary.
-        2. Only call a tool once for a query unless you explicitly need more information.
-        3. Always provide an actual response when you have enough information.
-        <citation_instructions>
-        If the assistant's response is based on content returned by the web_search, drive_search, google_drive_search, or google_drive_fetch tool, the assistant must always appropriately cite its response. Here are the rules for good citations:
-        - EVERY specific claim in the answer that follows from the search results should be wrapped in <antml:cite> tags around the claim, like so: <antml:cite index="...">...</antml:cite>.
-        - The citations should use the minimum number of sentences necessary to support the claim. Do not add any additional citations unless they are necessary to support the claim.
-        - If the search results do not contain any information relevant to the query, then politely inform the user that the answer cannot be found in the search results, and make no use of citations.
-        Make sure to act accordingly.
-        </citation_instructions>
+        Your role is to search the web for accurate information and present it with proper citations.
+        
+        When searching the web:
+        1. Use the tavily_search_results tool with a specific query parameter
+        2. Analyze the search results thoroughly
+        3. Provide a clear, concise summary with proper citations
+        4. Include the source URLs in your response
+        
+        CITATION FORMATTING INSTRUCTIONS (CRITICAL):
+        - Every claim based on search results MUST be wrapped in citation tags: <cite index="SOURCE_INDEX">your text here</cite>
+        - The SOURCE_INDEX should be formatted as "result_number-sentence_number" (e.g., "0-1" for first result, first sentence)
+        - For each search result you reference, include the URL at the end of your response
+        - If using multiple sources, use different index numbers
+        - If you're unsure about information, indicate this clearly
+        - Never fabricate citations or sources
+        
+        Example of properly cited response:
+        
+        <cite index="0-1">The average temperature in New York in December is 35°F (1.7°C).</cite> <cite index="1-1">Snowfall is common, with the city receiving approximately 4.8 inches of snow during the month.</cite>
+        
+        Sources:
+        [1] weather.com/new-york-climate
+        [2] nyc.gov/winter-statistics
+        
+        Format your response carefully following these instructions. This is critical for providing trustworthy information.
         """
     )
 
@@ -167,10 +289,27 @@ def get_workflow_app():
         [search_agent, code_agent, wiki_agent],
         model=gpt,
         prompt=get_enhanced_supervisor_prompt(),
-        # output_mode="last_message",
         output_mode="full_history",
         parallel_tool_calls=False
     )
+
+    # Store original methods
+    original_invoke = workflow.invoke
+    original_stream = workflow.stream
+
+    # Override the invoke method with post-processing
+    def invoke_with_post_processing(input_data, config=None):
+        result = original_invoke(input_data, config)
+        return post_process_workflow_output(result, [process_citations])
+
+    # Override the stream method with post-processing
+    def stream_with_post_processing(input_data, config=None):
+        for event in original_stream(input_data, config):
+            yield post_process_workflow_output(event, [process_citations])
+
+    # Replace the methods
+    workflow.invoke = invoke_with_post_processing
+    workflow.stream = stream_with_post_processing
 
     memory = MemorySaver()
     app = workflow.compile(
@@ -178,25 +317,3 @@ def get_workflow_app():
     )
     
     return app
-
-# Function for testing the workflow with a single user
-def test_workflow():
-    app = get_workflow_app()
-    
-    # Set up a streaming function for a single user
-    def stream_memory_responses(user_input: str):
-        config = {"configurable": {"thread_id": "single_session_memory"}}
-
-        # Stream the events in the graph
-        for event in app.stream({"messages": [("user", user_input)]}, config):
-
-            # Return the agent's last response
-            for value in event.values():
-                if "messages" in value and value["messages"]:
-                    print("Agent:", value["messages"])
-    
-    # Test the workflow with a few example queries
-    print("Testing workflow with example queries...")
-    stream_memory_responses("What is the Colosseum?")
-    stream_memory_responses("what is the factorial of 8?")
-    stream_memory_responses("search for flights from ny to instabul during the last week of Dec")
