@@ -32,8 +32,6 @@ from langchain_openai import ChatOpenAI
 # Module for setting up Google Gen AI
 from google import genai
 from langchain_google_genai import ChatGoogleGenerativeAI
-from google.genai.types import (Tool, GenerateContentConfig, 
-    GoogleSearch, ThinkingConfig, ToolCodeExecution)
 
 # Modules for creating ReAct agents with Supervisor architecture
 from langgraph_supervisor import create_supervisor
@@ -235,6 +233,13 @@ def get_workflow_app():
         print("Please set the GEMINI_API_KEY environment variable in your .env file")
         print("You can get an API key from Google AI Studio: https://makersuite.google.com/")
 
+    # Initialize Anthropic/Claude
+    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not anthropic_api_key:
+        print("Warning: ANTHROPIC_API_KEY environment variable not set.")
+        print("Please set the ANTHROPIC_API_KEY environment variable in your .env file")
+        print("You can get an API key from Anthropic: https://console.anthropic.com/")
+
     # Initialize Tavily Search
     tavily_api_key = os.getenv("TAVILY_API_KEY")
     if not tavily_api_key:
@@ -253,11 +258,15 @@ def get_workflow_app():
         model='gemini-2.0-flash-001',  # Same model as main LLM
         google_api_key=gemini_api_key,
         temperature=0.01,
-        max_output_tokens=2048,
-        model_kwargs={ 
-            "tools": [Tool(code_execution=ToolCodeExecution())],
-            "tool_config": {"function_calling_config": {"mode": "AUTO"}}
-        }
+        max_output_tokens=2048
+    )
+
+    # Initialize Claude LLM specifically for code execution
+    claude = ChatAnthropic(
+        model_name="claude-3-7-sonnet-20240229",
+        anthropic_api_key=anthropic_api_key,
+        temperature=0.01,
+        max_tokens=4096
     )
 
     # Initiate Tavily Search with enhanced configuration:
@@ -284,7 +293,7 @@ def get_workflow_app():
 
     # Enhanced search agent with better citation handling
     search_agent = create_react_agent(
-        model=gpt,
+        model=gemini,
         tools=[tavily_search],
         name="search_agent",
         prompt="""
@@ -319,16 +328,23 @@ def get_workflow_app():
     )
 
     code_agent = create_react_agent(
-        model=gemini,
-        tools=[],
+        model=claude,
+        tools=[PyodideSandboxTool()],
         name="code_agent",
         prompt="""
-        You are an expert coder.
-        Write and execute code to solve user queries and complex tasks.
-        When executing code: Use your built-in code execution capabilities with proper code formatting.
-        1. After receiving results, analyze them and provide a clear, concise summary.
-        2. Only call a tool once for a query unless you explicitly need more information.
-        3. Always provide an actual response when you have enough information.
+        You are an expert AI code assistant powered by Claude 3.7 Sonnet.
+        
+        Your role is to handle code requests from users through the CodeAct system.
+        
+        When receiving code requests:
+        1. Acknowledge the code request briefly
+        2. Mention that you're using Claude 3.7 Sonnet's code execution capabilities
+        3. Pass the request to the underlying system
+        
+        Example response:
+        "I'll handle your code request using Claude 3.7 Sonnet's code execution capabilities..."
+        
+        Do not attempt to write or execute code yourself - this will be handled automatically.
         """
     )
 
@@ -363,18 +379,168 @@ def get_workflow_app():
         checkpointer=memory
     )
     
+    # Create a state store for CodeAct sessions
+    codeact_states = {}
+    
     # Now wrap the compiled app with our post-processing
     original_invoke = app.invoke
     original_stream = app.stream
     
-    # Create wrapped versions of invoke and stream that apply post-processing
+    # Create wrapped versions of invoke and stream that apply post-processing and handle CodeAct
     def invoke_with_post_processing(input_data, config=None):
+        # Extract session ID from config
+        session_id = config.get("configurable", {}).get("thread_id", "default") if config else "default"
+        
+        # Check if this is a code execution request
+        if isinstance(input_data, dict) and "messages" in input_data:
+            last_message = input_data["messages"][-1] if input_data["messages"] else None
+            
+            # Check if the last message contains code keywords
+            is_code_request = False
+            if last_message:
+                content = last_message[1] if isinstance(last_message, tuple) else last_message.content
+                code_indicators = ["write a code", "create a program", "write code", "code that", 
+                                   "write me a", "coding example", "code example", "python script", 
+                                   "function that", "class that"]
+                
+                is_code_request = any(indicator in content.lower() for indicator in code_indicators)
+                
+                # For code requests, get a preliminary result to see if code_agent is triggered
+                if is_code_request:
+                    result = original_invoke(input_data, config)
+                    
+                    # Check if code_agent was activated
+                    if any("code_agent" in str(val) for val in result.values()):
+                        # This is a confirmed code request that triggered code_agent
+                        # Process with CodeAct
+                        if session_id not in codeact_states:
+                            codeact_states[session_id] = {"messages": []}
+                        
+                        # Add the user's message to CodeAct state
+                        codeact_states[session_id]["messages"].append(
+                            {"role": "user", "content": content}
+                        )
+                        
+                        # Execute with CodeAct
+                        codeact_result = codeact_graph.invoke(codeact_states[session_id])
+                        
+                        # Update CodeAct state
+                        codeact_states[session_id] = codeact_result
+                        
+                        # Extract response
+                        assistant_messages = [msg for msg in codeact_result["messages"] 
+                                             if isinstance(msg, dict) and msg.get("role") == "assistant"]
+                        
+                        if assistant_messages:
+                            assistant_response = assistant_messages[-1]["content"]
+                            
+                            # Replace the code_agent result with the CodeAct result
+                            for key in result:
+                                if isinstance(result[key], dict) and "messages" in result[key]:
+                                    messages = result[key]["messages"]
+                                    for i, msg in enumerate(messages):
+                                        if "code_agent" in str(msg):
+                                            if isinstance(msg, AIMessage):
+                                                result[key]["messages"][i] = AIMessage(content=assistant_response)
+                                            elif isinstance(msg, tuple) and len(msg) > 1:
+                                                result[key]["messages"][i] = ("assistant", assistant_response)
+                        
+                        return process_citations(result)
+                    
+                    # If code_agent wasn't triggered, just return the result
+                    return process_citations(result)
+        
+        # For non-code requests or code requests that don't trigger code_agent
         result = original_invoke(input_data, config)
         return process_citations(result)
     
     def stream_with_post_processing(input_data, config=None):
+        # Extract session ID from config
+        session_id = config.get("configurable", {}).get("thread_id", "default") if config else "default"
+        
+        # Track if we've detected a code request
+        code_request_detected = False
+        code_agent_triggered = False
+        user_message = ""
+        
+        # Check if this is a code execution request
+        if isinstance(input_data, dict) and "messages" in input_data:
+            last_message = input_data["messages"][-1] if input_data["messages"] else None
+            
+            if last_message:
+                user_message = last_message[1] if isinstance(last_message, tuple) else last_message.content
+                code_indicators = ["write a code", "create a program", "write code", "code that", 
+                                   "write me a", "coding example", "code example", "python script", 
+                                   "function that", "class that"]
+                
+                code_request_detected = any(indicator in user_message.lower() for indicator in code_indicators)
+        
+        # Begin streaming
+        accumulating_content = ""
+        codeact_used = False
+        
         for event in original_stream(input_data, config):
-            yield process_citations(event)
+            processed_event = process_citations(event)
+            
+            # Check if code_agent is triggered during streaming
+            if not code_agent_triggered and code_request_detected:
+                for key, value in processed_event.items():
+                    if isinstance(value, dict) and "messages" in value:
+                        for msg in value["messages"]:
+                            if "code_agent" in str(msg):
+                                code_agent_triggered = True
+                                break
+            
+            if code_agent_triggered and not codeact_used:
+                # This is the first event after code agent was triggered
+                codeact_used = True
+                
+                # Add the user's message to CodeAct state
+                if session_id not in codeact_states:
+                    codeact_states[session_id] = {"messages": []}
+                
+                codeact_states[session_id]["messages"].append(
+                    {"role": "user", "content": user_message}
+                )
+                
+                # Execute with CodeAct - non-streaming for simplicity
+                codeact_result = codeact_graph.invoke(codeact_states[session_id])
+                
+                # Update CodeAct state
+                codeact_states[session_id] = codeact_result
+                
+                # Extract response
+                assistant_messages = [msg for msg in codeact_result["messages"] 
+                                    if isinstance(msg, dict) and msg.get("role") == "assistant"]
+                
+                if assistant_messages:
+                    assistant_response = assistant_messages[-1]["content"]
+                    
+                    # Create a modified event with the CodeAct result
+                    modified_event = {}
+                    for key, value in processed_event.items():
+                        if isinstance(value, dict) and "messages" in value:
+                            modified_messages = []
+                            for msg in value["messages"]:
+                                if "code_agent" in str(msg):
+                                    if isinstance(msg, AIMessage):
+                                        modified_messages.append(AIMessage(content=assistant_response))
+                                    elif isinstance(msg, tuple) and len(msg) > 1:
+                                        modified_messages.append(("assistant", assistant_response))
+                                else:
+                                    modified_messages.append(msg)
+                            
+                            new_value = value.copy()
+                            new_value["messages"] = modified_messages
+                            modified_event[key] = new_value
+                        else:
+                            modified_event[key] = value
+                    
+                    yield modified_event
+                    continue
+            
+            # For regular events or if CodeAct wasn't involved
+            yield processed_event
     
     # Replace the methods on the compiled app
     app.invoke = invoke_with_post_processing
