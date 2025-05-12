@@ -20,41 +20,22 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         
         socket.onmessage = function(event) {
-            try {
-                const data = JSON.parse(event.data);
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'message_received') {
+                // User message already added, do nothing
+            } else if (data.type === 'partial_response') {
+                // Update or create assistant's message
+                updateAssistantMessage(data.message.content);
+            } else if (data.type === 'message_complete') {
+                // Finalize assistant's message
+                updateAssistantMessage(data.message.content, true);
                 
-                if (data.type === 'message_received') {
-                    // User message already added, do nothing
-                } else if (data.type === 'partial_response') {
-                    // Transform agent transfer messages before displaying
-                    let content = transformAgentMessages(data.message.content);
-                    
-                    // Only update if there's actual content to show
-                    if (content) {
-                        updateAssistantMessage(content);
-                    }
-                } else if (data.type === 'message_complete') {
-                    // Transform agent transfer messages before finalizing
-                    let content = transformAgentMessages(data.message.content);
-                    
-                    // Only update if there's actual content to show
-                    if (content) {
-                        // Finalize assistant's message
-                        updateAssistantMessage(content, true);
-                    }
-                    
-                    // Remove typing indicator if present
-                    const typingIndicator = document.querySelector('.typing-indicator');
-                    if (typingIndicator) {
-                        typingIndicator.remove();
-                    }
-                    
-                    // Also remove any tool usage messages when the response is complete
-                    const toolMessages = document.querySelectorAll('.tool-usage-message');
-                    toolMessages.forEach(msg => msg.remove());
+                // Remove typing indicator if present
+                const typingIndicator = document.querySelector('.typing-indicator');
+                if (typingIndicator) {
+                    typingIndicator.remove();
                 }
-            } catch (error) {
-                console.error('Error processing WebSocket message:', error);
             }
         };
         
@@ -70,95 +51,6 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('WebSocket error:', error);
             socket.close();
         };
-    }
-    
-    // Function to display a tool usage indicator
-    function displayToolUsage(toolType) {
-        // Remove any existing tool usage messages
-        const existingToolMessages = document.querySelectorAll('.tool-usage-message');
-        existingToolMessages.forEach(msg => msg.remove());
-        
-        // Create new tool usage message
-        const toolMessage = document.createElement('div');
-        toolMessage.className = `tool-usage-message ${toolType}`;
-        
-        // Set message text based on tool type
-        switch(toolType) {
-            case 'search':
-                toolMessage.textContent = 'Using Web Search Tool...';
-                break;
-            case 'wiki':
-                toolMessage.textContent = 'Using Wikipedia Tool...';
-                break;
-            case 'code':
-                toolMessage.textContent = 'Using Code Execution Tool...';
-                break;
-            case 'thinking':
-                toolMessage.textContent = 'Thinking...';
-                break;
-            default:
-                toolMessage.textContent = 'Processing...';
-        }
-        
-        // Add to chat messages
-        chatMessages.appendChild(toolMessage);
-        
-        // Scroll to bottom
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-        
-        // Return the created element so it can be removed later
-        return toolMessage;
-    }
-    
-    // Function to transform agent transfer messages into user-friendly messages
-    function transformAgentMessages(content) {
-        if (!content) return content;
-        
-        // Check for agent transfer messages and display appropriate tool usage indicators
-        if (content.includes('transferred to search_agent') || content === 'search_agent' || 
-            content === 'Using Web Search Tool...') {
-            displayToolUsage('search');
-            // Return empty string to prevent showing the technical message
-            return '';
-        }
-        
-        if (content.includes('transferred to wiki_agent') || content === 'wiki_agent' || 
-            content === 'Using Wikipedia Tool...') {
-            displayToolUsage('wiki');
-            return '';
-        }
-        
-        if (content.includes('transferred to code_agent') || content === 'code_agent' || 
-            content === 'Using Code Execution Tool...') {
-            displayToolUsage('code');
-            return '';
-        }
-        
-        if (content.includes('transferred back to supervisor') || content === 'supervisor' || 
-            content === 'Thinking...') {
-            displayToolUsage('thinking');
-            return '';
-        }
-        
-        // If content contains a real message (not just a transfer notification)
-        if (content.length > 30 || 
-            content.includes('I found') || 
-            content.includes('Here is') || 
-            content.includes('According to')) {
-            // Remove any tool usage indicators when real content appears
-            const toolMessages = document.querySelectorAll('.tool-usage-message');
-            toolMessages.forEach(msg => msg.remove());
-            
-            // Keep the actual content
-            return content;
-        }
-        
-        // For other transfer messages or short notifications, hide them
-        if (content.length < 30) {
-            return '';
-        }
-        
-        return content;
     }
     
     // Initialize WebSocket connection
@@ -182,76 +74,52 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Send message via WebSocket if connected
         if (isConnected) {
-            try {
-                socket.send(JSON.stringify({
-                    message: message
-                }));
-            } catch (error) {
-                console.error('Error sending message via WebSocket:', error);
-                // Fallback to REST API if WebSocket fails
-                sendViaRestApi(message);
-            }
+            socket.send(JSON.stringify({
+                message: message
+            }));
         } else {
             // Fallback to REST API if WebSocket not connected
-            sendViaRestApi(message);
-        }
-    }
-    
-    // Send message via REST API (fallback method)
-    function sendViaRestApi(message) {
-        fetch('/api/chat', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                session_id: sessionId,
-                message: message
-            }),
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            // Remove typing indicator
-            const typingIndicator = document.querySelector('.typing-indicator');
-            if (typingIndicator) {
-                typingIndicator.remove();
-            }
-            
-            // Add assistant message
-            const messages = data.messages;
-            if (messages && messages.length > 0) {
-                const assistantMessage = messages[messages.length - 1];
-                if (assistantMessage && assistantMessage.role === 'assistant') {
-                    // Transform agent messages before displaying
-                    let content = transformAgentMessages(assistantMessage.content);
-                    if (content) {
-                        addMessage('assistant', content);
-                    }
+            fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    message: message
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Remove typing indicator
+                const typingIndicator = document.querySelector('.typing-indicator');
+                if (typingIndicator) {
+                    typingIndicator.remove();
                 }
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            // Remove typing indicator
-            const typingIndicator = document.querySelector('.typing-indicator');
-            if (typingIndicator) {
-                typingIndicator.remove();
-            }
-            
-            // Add error message
-            addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
-        });
+                
+                // Add assistant message
+                const messages = data.messages;
+                const assistantMessage = messages[messages.length - 1];
+                if (assistantMessage.role === 'assistant') {
+                    addMessage('assistant', assistantMessage.content);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Remove typing indicator
+                const typingIndicator = document.querySelector('.typing-indicator');
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
+                
+                // Add error message
+                addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+            });
+        }
     }
     
     // Add a message to the chat
     function addMessage(role, content) {
-        if (!content) return null;
-        
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${role}`;
         
@@ -273,8 +141,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Update an existing assistant message or create a new one
     function updateAssistantMessage(content, isFinal = false) {
-        if (!content) return;
-        
         // Remove typing indicator if it exists
         const typingIndicator = document.querySelector('.typing-indicator');
         if (typingIndicator) {
@@ -283,20 +149,17 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let assistantMessage = chatMessages.querySelector('.message.assistant:last-child');
         
-        // Fix the conditional statement with proper parentheses for clarity
-        if (!assistantMessage || 
-            assistantMessage.classList.contains('typing-indicator') || 
-            (assistantMessage.nextElementSibling && assistantMessage.nextElementSibling.classList.contains('user'))) {
+        // If the last message is a user message or there's no assistant message, create a new one
+        if (!assistantMessage || assistantMessage.classList.contains('typing-indicator') || 
+            assistantMessage.nextElementSibling && assistantMessage.nextElementSibling.classList.contains('user')) {
             assistantMessage = addMessage('assistant', content);
         } else {
             // Update existing message
             const messageContent = assistantMessage.querySelector('.message-content');
-            if (messageContent) {
-                messageContent.innerHTML = formatMessage(content);
-                
-                // Scroll to bottom
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
+            messageContent.innerHTML = formatMessage(content);
+            
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
         
         if (isFinal) {
@@ -317,26 +180,46 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Format message content with enhanced markdown-like processing and citation handling
     function formatMessage(content) {
-        if (!content) return '';
+        // Check for code execution results and add special formatting
+        const isCodeExecution = content.includes("**Code Execution Result:**");
         
         // Replace newlines with <br>
         let formatted = content.replace(/\n/g, '<br>');
         
-        // Simple markdown for code blocks
-        formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+        // Handle code execution results with special formatting
+        if (isCodeExecution) {
+            formatted = formatted.replace(
+                "**Code Execution Result:**<br><br>", 
+                "<div class='code-execution-result'><strong>Code Execution Result:</strong><br><br>"
+            );
+            // Close the div at the end or before sources section
+            if (formatted.includes("<div class=\"sources-section\">")) {
+                formatted = formatted.replace(
+                    "<div class=\"sources-section\">", 
+                    "</div><div class=\"sources-section\">"
+                );
+            } else {
+                formatted = formatted + "</div>";
+            }
+        }
+        
+        // Simple markdown for code blocks with language detection
+        formatted = formatted.replace(/```(\w*)([\s\S]*?)```/g, function(match, language, code) {
+            return `<pre><code class="language-${language || 'plaintext'}">${code.trim()}</code></pre>`;
+        });
         
         // Inline code
         formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
         
-        // Italics
-        formatted = formatted.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
-        
-        // Bold
+        // Bold - needs to run after code blocks to avoid conflicts
         formatted = formatted.replace(/\*\*([^\*]+)\*\*/g, '<strong>$1</strong>');
+        
+        // Italics - needs to run after bold
+        formatted = formatted.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
         
         // Convert URLs to clickable links
         formatted = formatted.replace(
-            /(https?:\/\/[^\s]+)/g, 
+            /(https?:\/\/[^\s<]+)/g, 
             '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
         );
         
@@ -345,13 +228,13 @@ document.addEventListener('DOMContentLoaded', function() {
             '<span class="citation" data-cite-index="$1">$2<sup class="citation-marker">[$1]</sup></span>');
         
         // Extract and format sources if they exist
-        const sourcesMatch = formatted.match(/Sources:\s*\n?([\s\S]+)/);
+        const sourcesMatch = formatted.match(/Sources:\s*<br>([\s\S]+)/);
         if (sourcesMatch) {
-            const sourcesList = sourcesMatch[1].split('\n').filter(s => s.trim().length > 0);
+            const sourcesList = sourcesMatch[1].split('<br>').filter(s => s.trim().length > 0);
             const sourcesHtml = sourcesList.map((source, index) => 
                 `<li class="source-item">${source}</li>`).join('');
             
-            formatted = formatted.replace(/Sources:\s*\n?([\s\S]+)/, 
+            formatted = formatted.replace(/Sources:\s*<br>([\s\S]+)/, 
                 `<div class="sources-section">
                     <h4>Sources:</h4>
                     <ol class="sources-list">${sourcesHtml}</ol>

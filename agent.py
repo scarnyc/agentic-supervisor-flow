@@ -32,6 +32,8 @@ from langchain_openai import ChatOpenAI
 # Module for setting up Google Gen AI
 from google import genai
 from langchain_google_genai import ChatGoogleGenerativeAI
+from google.genai.types import (Tool, GenerateContentConfig, 
+    GoogleSearch, ThinkingConfig, ToolCodeExecution)
 
 # Modules for creating ReAct agents with Supervisor architecture
 from langgraph_supervisor import create_supervisor
@@ -157,10 +159,10 @@ def format_citations(content: str) -> str:
 
 def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Post-process the response from the search agent to ensure proper citation formatting.
+    Post-process the response from agents to ensure proper citation formatting.
     
     Args:
-        response: The response dictionary from the search agent
+        response: The response dictionary from the agent
         
     Returns:
         The processed response with properly formatted citations
@@ -171,21 +173,41 @@ def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
     processed_messages = []
     
     for message in response["messages"]:
-        if isinstance(message, AIMessage) or (isinstance(message, tuple) and message[0] == "assistant"):
-            # Extract the content
-            content = message.content if isinstance(message, AIMessage) else message[1]
-            
-            # Process citations
+        # Handle different message types
+        if isinstance(message, AIMessage) or (hasattr(message, 'type') and message.type == 'ai'):
+            # AI message from LLM
+            content = message.content
             content = format_citations(content)
-            
-            # Recreate the message with the updated content
             if isinstance(message, AIMessage):
                 processed_message = AIMessage(content=content)
             else:
-                processed_message = ("assistant", content)
-            
+                # If it's not a standard AIMessage, preserve the original with updated content
+                message.content = content
+                processed_message = message
             processed_messages.append(processed_message)
+        elif hasattr(message, 'type') and message.type == 'tool':
+            # Tool message (from code execution, etc.)
+            # Skip processing if it's an internal handoff
+            if (hasattr(message, 'response_metadata') and 
+                ("__handoff_destination" in message.response_metadata or 
+                 "__is_handoff_back" in message.response_metadata)):
+                processed_messages.append(message)
+                continue
+            
+            # For code execution results, format the content
+            content = message.content
+            content = format_citations(content)
+            
+            # Preserve the original message but update its content
+            message.content = content
+            processed_messages.append(message)
+        elif isinstance(message, tuple) and len(message) > 1:
+            # Handle tuple format (role, content)
+            role, content = message[0], message[1]
+            content = format_citations(content)
+            processed_messages.append((role, content))
         else:
+            # Keep any other message types as-is
             processed_messages.append(message)
     
     response["messages"] = processed_messages
@@ -231,7 +253,11 @@ def get_workflow_app():
         model='gemini-2.0-flash-001',  # Same model as main LLM
         google_api_key=gemini_api_key,
         temperature=0.01,
-        max_output_tokens=2048
+        max_output_tokens=2048,
+        model_kwargs={ 
+            "tools": [Tool(code_execution=ToolCodeExecution())],
+            "tool_config": {"function_calling_config": {"mode": "AUTO"}}
+        }
     )
 
     # Initiate Tavily Search with enhanced configuration:

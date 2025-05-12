@@ -15,7 +15,7 @@ from agent import get_workflow_app, process_citations
 from fastapi import Request
 
 # Initialize FastAPI
-app = FastAPI(title="Agentic API")
+app = FastAPI(title="CopilotKit API")
 
 # Add CORS middleware
 app.add_middleware(
@@ -156,6 +156,10 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             partial_response = ""
             
             try:
+                # Create a flag to track if we're in a code execution context
+                is_code_execution = False
+                last_tool_name = None
+
                 # Stream response from workflow
                 config = {"configurable": {"thread_id": session_id}}
                 
@@ -176,10 +180,40 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                 if hasattr(last_message, '__dict__'):
                                     print(f"Message attributes: {last_message.__dict__}")
                                 
+                                # Skip internal handoff messages
+                                if hasattr(last_message, 'response_metadata'):
+                                    metadata = last_message.response_metadata
+                                    # Skip messages that are just internal handoffs
+                                    if "__handoff_destination" in metadata:
+                                        if metadata.get("__handoff_destination") == "code_agent":
+                                            is_code_execution = True
+                                        continue
+                                    
+                                    # Skip handoffs back to supervisor
+                                    if "__is_handoff_back" in metadata:
+                                        is_code_execution = False
+                                        continue
+                                
+                                # Track the tool name if available
+                                if hasattr(last_message, 'name'):
+                                    last_tool_name = last_message.name
+                                
                                 # Extract content based on message type
                                 if hasattr(last_message, 'content'):
-                                    # Handle ToolMessage or AIMessage objects
-                                    new_content = last_message.content
+                                    if hasattr(last_message, 'type') and last_message.type == 'tool':
+                                        # For tool messages that aren't handoffs, use content directly
+                                        if (last_tool_name != "transfer_to_code_agent" and 
+                                            last_tool_name != "transfer_back_to_supervisor"):
+                                            new_content = last_message.content
+                                            # Add clear marker for code execution results
+                                            if is_code_execution:
+                                                new_content = f"**Code Execution Result:**\n\n{new_content}"
+                                        else:
+                                            # Skip tool messages that are just for handoffs
+                                            continue
+                                    else:
+                                        # For AI messages, use content as is
+                                        new_content = last_message.content
                                 elif isinstance(last_message, tuple) and len(last_message) > 1:
                                     # Handle tuple format (role, content)
                                     new_content = last_message[1]
@@ -187,34 +221,13 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     # Fallback - try to convert to string
                                     new_content = str(last_message)
                                 
-                                # Check for tool/agent indicators to send special UI signals
-                                tool_indicators = {
-                                    "🔍 Searching the web": "search",
-                                    "💻 Setting up code": "code",
-                                    "📚 Checking Wikipedia": "wiki"
-                                }
+                                # Process citations in the new content
+                                processed_result = process_citations({"messages": [("assistant", new_content)]})
+                                if "messages" in processed_result and processed_result["messages"]:
+                                    new_content = processed_result["messages"][0][1]
                                 
-                                is_tool_indicator = False
-                                tool_type = None
-                                
-                                for indicator, tool in tool_indicators.items():
-                                    if new_content.startswith(indicator):
-                                        is_tool_indicator = True
-                                        tool_type = tool
-                                        break
-                                
-                                # If this is a tool indicator, send special message type
-                                if is_tool_indicator and tool_type:
-                                    await websocket.send_json({
-                                        "type": "tool_usage",
-                                        "tool": tool_type,
-                                        "message": {
-                                            "role": "system",
-                                            "content": new_content
-                                        }
-                                    })
-                                # Otherwise send as regular partial response
-                                elif new_content != partial_response:
+                                # If we have new content and it's different from the last update, send it
+                                if new_content and new_content != partial_response:
                                     await websocket.send_json({
                                         "type": "partial_response",
                                         "message": {
@@ -225,16 +238,17 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     partial_response = new_content
                             
                             except Exception as e:
-                                # Error handling for message processing
-                                print(f"Error processing message: {e}")
+                                # Enhanced error handling
+                                error_msg = f"Error processing message: {str(e)}"
+                                print(error_msg)
                                 traceback.print_exc()
                                 
-                                # Notify the client
+                                # Send a more detailed error message to the client
                                 await websocket.send_json({
                                     "type": "error",
                                     "message": {
-                                        "role": "system",
-                                        "content": "An error occurred while processing the response."
+                                        "role": "system", 
+                                        "content": "An error occurred while processing your request. Please try again."
                                     }
                                 })
                 
