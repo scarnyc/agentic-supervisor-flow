@@ -148,16 +148,6 @@ def format_citations(content: str) -> str:
     
     return content
 
-def post_process_workflow_output(output, post_processors=None):
-    """Apply post-processing functions to workflow outputs"""
-    if not post_processors:
-        return output
-        
-    processed_output = output
-    for processor in post_processors:
-        processed_output = processor(processed_output)
-    return processed_output
-
 def get_workflow_app():
     """
     Initialize and return the LangGraph workflow application.
@@ -293,27 +283,27 @@ def get_workflow_app():
         parallel_tool_calls=False
     )
 
-    # Store original methods
-    original_invoke = workflow.invoke
-    original_stream = workflow.stream
-
-    # Override the invoke method with post-processing
-    def invoke_with_post_processing(input_data, config=None):
-        result = original_invoke(input_data, config)
-        return post_process_workflow_output(result, [process_citations])
-
-    # Override the stream method with post-processing
-    def stream_with_post_processing(input_data, config=None):
-        for event in original_stream(input_data, config):
-            yield post_process_workflow_output(event, [process_citations])
-
-    # Replace the methods
-    workflow.invoke = invoke_with_post_processing
-    workflow.stream = stream_with_post_processing
-
+    # Create memory saver and compile the workflow
     memory = MemorySaver()
     app = workflow.compile(
         checkpointer=memory
     )
+    
+    # Now wrap the compiled app with our post-processing
+    original_invoke = app.invoke
+    original_stream = app.stream
+    
+    # Create wrapped versions of invoke and stream that apply post-processing
+    def invoke_with_post_processing(input_data, config=None):
+        result = original_invoke(input_data, config)
+        return process_citations(result)
+    
+    def stream_with_post_processing(input_data, config=None):
+        for event in original_stream(input_data, config):
+            yield process_citations(event)
+    
+    # Replace the methods on the compiled app
+    app.invoke = invoke_with_post_processing
+    app.stream = stream_with_post_processing
     
     return app
