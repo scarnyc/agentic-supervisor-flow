@@ -14,6 +14,9 @@ from dotenv import load_dotenv
 from typing import Dict, Any
 import re
 import json
+import builtins
+import contextlib
+import io
 
 # Modules for Messages
 from langchain_core.messages import AIMessage
@@ -214,6 +217,25 @@ def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
     return response
 
 
+def eval(code: str, _locals: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    # Store original keys before execution
+    original_keys = set(_locals.keys())
+
+    try:
+        with contextlib.redirect_stdout(io.StringIO()) as f:
+            exec(code, builtins.__dict__, _locals)
+        result = f.getvalue()
+        if not result:
+            result = "<code ran, no output printed to stdout>"
+    except Exception as e:
+        result = f"Error during execution: {repr(e)}"
+
+    # Determine new variables created during execution
+    new_keys = set(_locals.keys()) - original_keys
+    new_vars = {key: _locals[key] for key in new_keys}
+    return result, new_vars
+
+
 def get_workflow_app():
     """
     Initialize and return the LangGraph workflow application.
@@ -332,10 +354,10 @@ def get_workflow_app():
         Format your response carefully following these instructions. This is critical for providing trustworthy information.
         """)
 
-    code_agent = create_react_agent(model=claude,
-                                    tools=[PyodideSandboxTool()],
-                                    name="code_agent",
-                                    prompt="""
+    code_agent = create_codeact(model=claude,
+                                tools=[PyodideSandboxTool()],
+                                eval_fn=eval,
+                                prompt="""
         You are an expert AI code assistant powered by Claude 3.7 Sonnet.
         
         Your role is to handle code requests from users through the CodeAct system.
@@ -536,7 +558,7 @@ def get_workflow_app():
                 })
 
                 # Execute with CodeAct - non-streaming for simplicity
-                codeact_result = codeact_graph.invoke(
+                codeact_result = app.invoke(
                     codeact_states[session_id])
 
                 # Update CodeAct state
