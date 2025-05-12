@@ -30,15 +30,16 @@ from langchain_anthropic import ChatAnthropic
 # Modules for creating ReAct agents with Supervisor architecture
 from langgraph_supervisor import create_supervisor
 from langgraph.prebuilt import create_react_agent
-
-# Import the modules for saving memory
 from langgraph.checkpoint.memory import MemorySaver
 
-from langchain.tools import tool
+# Import Langchain modules
+from langchain_core.tools import Tool
 from langchain_community.utilities import WikipediaAPIWrapper
 from langchain_community.tools import WikipediaQueryRun
 from langchain_community.tools.tavily_search.tool import TavilySearchResults
 from langchain_experimental.utilities import PythonREPL
+
+# Import the prompt for the supervisor
 from prompt import get_enhanced_supervisor_prompt
 
 # Load the .env file
