@@ -354,8 +354,10 @@ def get_workflow_app():
         Format your response carefully following these instructions. This is critical for providing trustworthy information.
         """)
 
+    sandbox_tool = PyodideSandboxTool()
+    sandbox_tool.__name__ = "pyodide_sandbox"  # Add __name__ attribute
     code_agent = create_codeact(model=claude,
-                                tools=[PyodideSandboxTool()],
+                                tools=[sandbox_tool],
                                 eval_fn=eval,
                                 prompt="""
         You are an expert AI code assistant powered by Claude 3.7 Sonnet.
