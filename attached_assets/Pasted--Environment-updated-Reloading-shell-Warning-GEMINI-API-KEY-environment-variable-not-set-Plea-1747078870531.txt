@@ -1,0 +1,19 @@
+ Environment updated. Reloading shell...
+Warning: GEMINI_API_KEY environment variable not set.
+Please set the GEMINI_API_KEY environment variable in your .env file
+You can get an API key from Google AI Studio: https://makersuite.google.com/
+Registered Wikipedia tool with name: wikipedia_query_run
+INFO:     Started server process [2392]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:3000 (Press CTRL+C to quit)
+INFO:     172.31.128.46:50904 - "GET / HTTP/1.1" 200 OK
+INFO:     172.31.128.46:50904 - "GET /static/js/app.js HTTP/1.1" 304 Not Modified
+INFO:     172.31.128.46:50904 - "GET /static/css/styles.css HTTP/1.1" 200 OK
+INFO:     172.31.128.46:50904 - "GET /static/images/White%20logo%20-%20no%20background.png HTTP/1.1" 200 OK
+INFO:     ('172.31.128.46', 50914) - "WebSocket /api/chat/ws/rfrij73mmo" [accepted]
+INFO:     connection open
+Message type: <class 'langchain_core.messages.ai.AIMessage'>
+Message attributes: {'content': 'The factorial of 8 (denoted as 8!) is the product of all positive integers from 1 to 8.\n\n8! = 8 × 7 × 6 × 5 × 4 × 3 × 2 × 1\n\nCalculating it:\n\n8! = 40320\n\nSo, the factorial of 8 is 40,320.', 'additional_kwargs': {'refusal': None}, 'response_metadata': {'token_usage': {'completion_tokens': 79, 'prompt_tokens': 521, 'total_tokens': 600, 'completion_tokens_details': {'accepted_prediction_tokens': 0, 'audio_tokens': 0, 'reasoning_tokens': 0, 'rejected_prediction_tokens': 0}, 'prompt_tokens_details': {'audio_tokens': 0, 'cached_tokens': 0}}, 'model_name': 'gpt-4.1-mini-2025-04-14', 'system_fingerprint': 'fp_38647f5e19', 'id': 'chatcmpl-BWTHmyDz0xEqGjWOkfeRTDY9E3Ha3', 'service_tier': 'default', 'finish_reason': 'stop', 'logprobs': None}, 'type': 'ai', 'name': 'supervisor', 'id': 'run--a4e684d8-d0c8-47a1-b1bc-0e2947e14e2d-0', 'example': False, 'tool_calls': [], 'invalid_tool_calls': [], 'usage_metadata': {'input_tokens': 521, 'output_tokens': 79, 'total_tokens': 600, 'input_token_details': {'audio': 0, 'cache_read': 0}, 'output_token_details': {'audio': 0, 'reasoning': 0}}}
+Message type: <class 'langchain_core.messages.tool.ToolMessage'>
+Message attributes: {'content': 'Successfully transferred to code_agent', 'additional_kwargs': {}, 'response_metadata': {'__handoff_destination': 'code_agent'}, 'type': 'tool', 'name': 'transfer_to_code_agent', 'id': '7d2f6284-6688-4dc2-972c-0db0b4d6d11e', 'tool_call_id': 'call_fHGX4lcVBnvZumr1uQOnWBga', 'artifact': None, 'status': 'success'}

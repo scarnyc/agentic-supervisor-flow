@@ -15,3 +15,9 @@ anthropic>=0.8.0
 google-generativeai>=0.3.2
 websockets>=12.0
 jinja2>=3.1.2
+langchain-community
+langchain-core
+langgraph-checkpoint
+pydantic
+sift-stack-py
+typing-extensions
