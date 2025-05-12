@@ -268,14 +268,6 @@ def get_workflow_app():
         temperature=0.01,
         max_tokens=4096
     )
-    
-    # Create sandbox for secure code execution
-    sandbox = PyodideSandbox(
-       "./sessions", # Directory to store session files
-       # Allow Pyodide to install python packages that
-       # might be required.
-       allow_net=True,
-    )
 
     # Initiate Tavily Search with enhanced configuration:
     tavily_search = TavilySearchResults(
