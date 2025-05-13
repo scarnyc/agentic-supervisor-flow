@@ -9,6 +9,7 @@ import uuid
 import json
 import traceback
 import logging
+from agent import get_workflow_app, process_citations
 
 # Configure logging
 logging.basicConfig(
@@ -278,13 +279,16 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                             last_message,
                                             tuple) and len(last_message) > 1:
                                         new_content = last_message[1]
-                                    elif isinstance(last_message, dict) and 'content' in last_message:
+                                    elif isinstance(
+                                            last_message, dict
+                                    ) and 'content' in last_message:
                                         new_content = last_message['content']
                                     else:
                                         new_content = str(last_message)
 
                                     # Log the message type and content for debugging
-                                    logger.debug(f"Message content: {new_content}")
+                                    logger.debug(
+                                        f"Message content: {new_content}")
 
                                     # Ensure content is a string
                                     if not isinstance(new_content, str):
