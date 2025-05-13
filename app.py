@@ -156,8 +156,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             partial_response = ""
             
             try:
-                # Create a flag to track if we're in a code execution context
-                is_code_execution = False
+                # Track agent context
+                current_agent = None
                 last_tool_name = None
 
                 # Stream response from workflow
@@ -180,36 +180,41 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                 if hasattr(last_message, '__dict__'):
                                     print(f"Message attributes: {last_message.__dict__}")
                                 
-                                # Skip internal handoff messages
+                                # Handle agent handoffs and transitions
                                 if hasattr(last_message, 'response_metadata'):
                                     metadata = last_message.response_metadata
-                                    # Skip messages that are just internal handoffs
                                     if "__handoff_destination" in metadata:
-                                        if metadata.get("__handoff_destination") == "code_agent":
-                                            is_code_execution = True
+                                        handoff_dest = metadata.get("__handoff_destination")
+                                        if handoff_dest in ["code_agent", "search_agent", "wiki_agent"]:
+                                            current_agent = handoff_dest
+                                            print(f"Message type: {type(last_message)}")
+                                            print(f"Message attributes: {last_message.__dict__}")
                                         continue
                                     
-                                    # Skip handoffs back to supervisor
+                                    # Handle handoffs back to supervisor
                                     if "__is_handoff_back" in metadata:
-                                        is_code_execution = False
+                                        current_agent = None
                                         continue
                                 
                                 # Track the tool name if available
                                 if hasattr(last_message, 'name'):
                                     last_tool_name = last_message.name
                                 
-                                # Extract content based on message type
+                                # Extract content based on message type and current agent
                                 if hasattr(last_message, 'content'):
                                     if hasattr(last_message, 'type') and last_message.type == 'tool':
-                                        # For tool messages that aren't handoffs, use content directly
-                                        if (last_tool_name != "transfer_to_code_agent" and 
-                                            last_tool_name != "transfer_back_to_supervisor"):
+                                        # Handle tool messages based on agent context
+                                        if not any(x in last_tool_name for x in ["transfer_to", "transfer_back"]):
                                             new_content = last_message.content
-                                            # Add clear marker for code execution results
-                                            if is_code_execution:
+                                            # Add appropriate markers based on agent context
+                                            if current_agent == "code_agent":
                                                 new_content = f"**Code Execution Result:**\n\n{new_content}"
+                                            elif current_agent == "search_agent":
+                                                new_content = f"**Search Results:**\n\n{new_content}"
+                                            elif current_agent == "wiki_agent":
+                                                new_content = f"**Wikipedia Information:**\n\n{new_content}"
                                         else:
-                                            # Skip tool messages that are just for handoffs
+                                            # Skip handoff messages
                                             continue
                                     else:
                                         # For AI messages, use content as is
