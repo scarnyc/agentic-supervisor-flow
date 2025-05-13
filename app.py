@@ -6,7 +6,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 from typing import (Dict, Optional, List, Any, TypedDict)
-from langgraph.graph import WorkflowContext
 from typing import Annotated
 import uuid
 import json
@@ -28,8 +27,7 @@ class AgentState(TypedDict):
     next_agent: str
 
 
-def log_transfer(state: AgentState,
-                 context: Annotated[WorkflowContext, "context"]) -> AgentState:
+def log_transfer(state: AgentState, context: Any) -> AgentState:
     """Log when control transfers between agents"""
     current = state.get("current_agent", "supervisor")
     next_agent = context.current_node
