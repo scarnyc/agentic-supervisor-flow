@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from typing import Dict, Any
 import re
 import json
+import logging
 
 # Modules for Messages
 from langchain_core.messages import AIMessage

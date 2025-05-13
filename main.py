@@ -20,17 +20,6 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()])
 logger = logging.getLogger(__name__)
 
-# Try to import the app at module level (for direct uvicorn execution)
-# This is wrapped in a try-except to prevent issues during initialization or testing
-try:
-    from app import app
-except ImportError:
-    logger.debug(
-        "App module not imported at initialization (this is normal during testing)"
-    )
-except Exception as e:
-    logger.warning(f"Could not import app module: {e}")
-
 
 @contextmanager
 def exception_handler():
@@ -172,16 +161,14 @@ def main():
         else:
             # Run the FastAPI server
             try:
-                # Import app here to ensure all initialization happens
-                from app import app
-
                 logger.info(
                     f"Starting Agentic server on http://{args.host}:{args.port}"
                 )
                 logger.info("Press Ctrl+C to exit")
 
-                # Use the correct module path
-                uvicorn.run("main:app",
+                # The key change: use app:app instead of main:app
+                # This directly runs the FastAPI instance from app.py
+                uvicorn.run("app:app",
                             host=args.host,
                             port=args.port,
                             reload=args.reload,
