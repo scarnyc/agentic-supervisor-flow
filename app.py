@@ -162,12 +162,14 @@ async def chat(chat_request: ChatRequest):
         # Extract assistant's response
         assistant_message = None
         for value in result.values():
-            if isinstance(value, dict) and "messages" in value and value["messages"]:
+            if isinstance(value,
+                          dict) and "messages" in value and value["messages"]:
                 # Get the last message from the assistant
                 last_message = value["messages"][-1]
 
                 # Extract content based on message type
-                if isinstance(last_message, dict) and 'content' in last_message:
+                if isinstance(last_message,
+                              dict) and 'content' in last_message:
                     assistant_message = last_message['content']
                 elif hasattr(last_message, 'content'):
                     assistant_message = last_message.content
@@ -308,19 +310,56 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     logger.debug(
                                         f"Message type: {type(last_message)}")
 
-                                    # Extract content based on message type
-                                    if isinstance(last_message, dict) and 'content' in last_message:
-                                        new_content = last_message['content']
-                                    elif hasattr(last_message, 'content'):
-                                        new_content = last_message.content
+                                    # Initialize raw_extracted_content
+                                    raw_extracted_content = None
+
+                                    # Extract content based on message type with a clear order
+                                    if hasattr(
+                                            last_message, 'content'
+                                    ):  # Catches AIMessage, ToolMessage etc.
+                                        raw_extracted_content = last_message.content
                                     elif isinstance(
-                                            last_message,
-                                            tuple) and len(last_message) > 1:
-                                        new_content = last_message[1]
-                                    elif isinstance(last_message, str):
-                                        new_content = last_message
+                                            last_message, dict
+                                    ) and 'content' in last_message:  # For plain dict messages
+                                        raw_extracted_content = last_message[
+                                            'content']
+                                    elif isinstance(
+                                            last_message, tuple
+                                    ) and len(
+                                            last_message
+                                    ) > 1:  # For (role, content) tuples
+                                        raw_extracted_content = last_message[1]
+                                    elif isinstance(
+                                            last_message, str
+                                    ):  # If the message itself is a string
+                                        raw_extracted_content = last_message
                                     else:
-                                        new_content = str(last_message)
+                                        raw_extracted_content = str(
+                                            last_message
+                                        )  # Fallback for any other types
+
+                                    # Process the extracted content: specifically convert an empty list [] to an empty string ""
+                                    if isinstance(
+                                            raw_extracted_content, list
+                                    ) and not raw_extracted_content:  # Checks if it's the problematic empty list []
+                                        new_content = ""
+                                    elif isinstance(raw_extracted_content,
+                                                    str):
+                                        new_content = raw_extracted_content
+                                    else:
+                                        # For any other type that isn't a string or the empty list, convert to string
+                                        # This ensures new_content is always a string at this point (or an empty one)
+                                        new_content = str(
+                                            raw_extracted_content)
+
+                                    # The logger.debug line that was here can be placed after this block if you want to see the processed new_content
+                                    # logger.debug(f"Message content (processed): {new_content}")
+
+                                    # The subsequent line in your original code:
+                                    # if not isinstance(new_content, str):
+                                    #     new_content = str(new_content)
+                                    # will now be largely redundant because new_content is guaranteed to be a string by the logic above,
+                                    # but keeping it won't harm and might catch an edge case if the above logic is expanded later.
 
                                     # Log the message type and content for debugging
                                     logger.debug(
