@@ -299,29 +299,34 @@ def get_workflow_app():
         )
 
     # Initialize GPT
-    if openai_api_key:
-        try:
-            gpt = ChatOpenAI(
-                model_name="gpt-4.1-mini-2025-04-14",
-                temperature=0.2,
-                top_p=0.95,
-                # Disable function calling to avoid conflicts with tool calls
-                function_call=None)
-            logger.info("Successfully initialized GPT model")
-        except Exception as e:
-            logger.error(f"Failed to initialize GPT model: {e}")
-            gpt = None
+    # if openai_api_key:
+    #     try:
+    #         gpt = ChatOpenAI(
+    #             model_name="gpt-4.1-mini-2025-04-14",
+    #             temperature=0.2,
+    #             top_p=0.95,
+    #             # Disable function calling to avoid conflicts with tool calls
+    #             function_call=None)
+    #         logger.info("Successfully initialized GPT model")
+    #     except Exception as e:
+    #         logger.error(f"Failed to initialize GPT model: {e}")
+    #         gpt = None
 
     # Initialize Claude LLM specifically for code execution
-    # if anthropic_api_key:
-    #     try:
-    #         claude = ChatAnthropic(model_name="claude-3-7-sonnet-latest",
-    #                                anthropic_api_key=anthropic_api_key,
-    #                                temperature=0.01,
-    #                                max_tokens=4096)
-    #     except Exception as e:
-    #         logger.error(f"Failed to initialize Claude model: {e}")
-    #         claude = None
+    if anthropic_api_key:
+        try:
+            claude = ChatAnthropic(
+                model_name="claude-3-7-sonnet-latest",
+                anthropic_api_key=anthropic_api_key,
+                temperature=0.01,
+                max_tokens=3000,  # Adjust as needed for the final answer
+                thinking={
+                    "type": "enabled",
+                    "budget_tokens": 500  # Adjust the token budget for the thinking process
+                })
+        except Exception as e:
+            logger.error(f"Failed to initialize Claude model: {e}")
+            claude = None
 
     # Initialize Gemini LLM
     # if gemini_api_key:
