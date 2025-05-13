@@ -318,11 +318,11 @@ def get_workflow_app():
             claude = ChatAnthropic(
                 model_name="claude-3-7-sonnet-latest",
                 anthropic_api_key=anthropic_api_key,
-                temperature=0.01,
                 max_tokens=3000,  # Adjust as needed for the final answer
                 thinking={
                     "type": "enabled",
-                    "budget_tokens": 500  # Adjust the token budget for the thinking process
+                    "budget_tokens":
+                    1024  # Adjust the token budget for the thinking process
                 })
         except Exception as e:
             logger.error(f"Failed to initialize Claude model: {e}")
