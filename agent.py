@@ -45,7 +45,7 @@ from prompt import get_enhanced_supervisor_prompt
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[logging.StreamHandler()])
 logger = logging.getLogger(__name__)

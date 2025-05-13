@@ -16,8 +16,9 @@ from app import app
 
 # Configure logging
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 # Add handlers
 stream_handler = logging.StreamHandler()
@@ -45,7 +46,7 @@ def exception_handler():
 
 def check_environment():
     """Check if required environment variables are set"""
-    required_vars = ["OPENAI_API_KEY"]
+    required_vars = ["ANTHROPIC_API_KEY"]
     missing_vars = [var for var in required_vars if not os.getenv(var)]
 
     if missing_vars:
@@ -58,7 +59,7 @@ def check_environment():
     # Check optional variables
     optional_vars = {
         "GEMINI_API_KEY": "Google Gemini API for code agent",
-        "ANTHROPIC_API_KEY": "Anthropic Claude API for code agent",
+        "OPENAI_API_KEY": "OPEN AI API for code agent",
         "TAVILY_API_KEY": "Tavily Search API for web search agent"
     }
 
