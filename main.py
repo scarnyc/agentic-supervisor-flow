@@ -20,6 +20,17 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()])
 logger = logging.getLogger(__name__)
 
+# Try to import the app at module level (for direct uvicorn execution)
+# This is wrapped in a try-except to prevent issues during initialization or testing
+try:
+    from app import app
+except ImportError:
+    logger.debug(
+        "App module not imported at initialization (this is normal during testing)"
+    )
+except Exception as e:
+    logger.warning(f"Could not import app module: {e}")
+
 
 @contextmanager
 def exception_handler():
@@ -50,7 +61,7 @@ def check_environment():
     # Check optional variables
     optional_vars = {
         "GEMINI_API_KEY": "Google Gemini API for code agent",
-        "ANTHROPIC_API_KEY": "Google Gemini API for code agent",
+        "ANTHROPIC_API_KEY": "Anthropic Claude API for code agent",
         "TAVILY_API_KEY": "Tavily Search API for web search agent"
     }
 
@@ -159,17 +170,18 @@ def main():
             logger.info("Running workflow tests...")
             test_workflow()
         else:
-            # Import app here to avoid circular imports
+            # Run the FastAPI server
             try:
+                # Import app here to ensure all initialization happens
                 from app import app
 
-                # Run the FastAPI server
                 logger.info(
                     f"Starting Agentic server on http://{args.host}:{args.port}"
                 )
-                logger.info(f"Press Ctrl+C to exit")
+                logger.info("Press Ctrl+C to exit")
 
-                uvicorn.run("app:app",
+                # Use the correct module path
+                uvicorn.run("main:app",
                             host=args.host,
                             port=args.port,
                             reload=args.reload,
