@@ -162,21 +162,25 @@ async def chat(chat_request: ChatRequest):
         # Extract assistant's response
         assistant_message = None
         for value in result.values():
-            if isinstance(value,
-                          dict) and "messages" in value and value["messages"]:
+            if isinstance(value, dict) and "messages" in value and value["messages"]:
                 # Get the last message from the assistant
                 last_message = value["messages"][-1]
 
                 # Extract content based on message type
-                if hasattr(last_message, 'content'):
-                    # Handle ToolMessage or AIMessage objects
+                if isinstance(last_message, dict) and 'content' in last_message:
+                    assistant_message = last_message['content']
+                elif hasattr(last_message, 'content'):
                     assistant_message = last_message.content
                 elif isinstance(last_message, tuple) and len(last_message) > 1:
-                    # Handle tuple format (role, content)
                     assistant_message = last_message[1]
+                elif isinstance(last_message, str):
+                    assistant_message = last_message
                 else:
-                    # Fallback - try to convert to string
                     assistant_message = str(last_message)
+
+                # Handle list/dict content
+                if isinstance(assistant_message, (list, dict)):
+                    assistant_message = str(assistant_message)
 
         if assistant_message:
             # Add assistant message to session
@@ -305,16 +309,16 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                         f"Message type: {type(last_message)}")
 
                                     # Extract content based on message type
-                                    if hasattr(last_message, 'content'):
+                                    if isinstance(last_message, dict) and 'content' in last_message:
+                                        new_content = last_message['content']
+                                    elif hasattr(last_message, 'content'):
                                         new_content = last_message.content
                                     elif isinstance(
                                             last_message,
                                             tuple) and len(last_message) > 1:
                                         new_content = last_message[1]
-                                    elif isinstance(
-                                            last_message, dict
-                                    ) and 'content' in last_message:
-                                        new_content = last_message['content']
+                                    elif isinstance(last_message, str):
+                                        new_content = last_message
                                     else:
                                         new_content = str(last_message)
 
