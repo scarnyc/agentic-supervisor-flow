@@ -9,17 +9,23 @@ import uuid
 import json
 import traceback
 import logging
-from agent import get_workflow_app, process_citations
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('app.log')
-    ])
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
 logger = logging.getLogger(__name__)
+
+# Add handlers *after* basicConfig is called
+handler = logging.StreamHandler()
+file_handler = logging.FileHandler('app.log')
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+file_handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.addHandler(file_handler)
 
 # Initialize FastAPI
 app = FastAPI(title="CopilotKit API")
@@ -272,8 +278,13 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                             last_message,
                                             tuple) and len(last_message) > 1:
                                         new_content = last_message[1]
+                                    elif isinstance(last_message, dict) and 'content' in last_message:
+                                        new_content = last_message['content']
                                     else:
                                         new_content = str(last_message)
+
+                                    # Log the message type and content for debugging
+                                    logger.debug(f"Message content: {new_content}")
 
                                     # Ensure content is a string
                                     if not isinstance(new_content, str):
