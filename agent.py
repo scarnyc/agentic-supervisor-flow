@@ -302,8 +302,10 @@ def get_workflow_app():
     if openai_api_key:
         try:
             gpt = ChatOpenAI(model_name="gpt-4.1-mini-2025-04-14",
-                             temperature=0.2,
-                             top_p=0.95)
+                 temperature=0.2,
+                 top_p=0.95,
+                 # Disable function calling to avoid conflicts with tool calls
+                 function_call=None)
             logger.info("Successfully initialized GPT model")
         except Exception as e:
             logger.error(f"Failed to initialize GPT model: {e}")
