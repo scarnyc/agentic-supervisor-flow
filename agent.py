@@ -11,7 +11,7 @@ import os
 from dotenv import load_dotenv
 
 # Modules for structuring text
-from typing import Dict, Any
+from typing import Dict, Any, List
 import re
 import json
 import logging
@@ -299,23 +299,29 @@ def get_workflow_app():
         )
 
     # Initialize GPT
-    try:
-        gpt = ChatOpenAI(model_name="gpt-4.1-mini-2025-04-14",
-                         temperature=0.2,
-                         top_p=0.95)
-        logger.info("Successfully initialized GPT model")
-    except Exception as e:
-        logger.error(f"Failed to initialize GPT model: {e}")
-        gpt = None
+    if openai_api_key:
+        try:
+            gpt = ChatOpenAI(model_name="gpt-4.1-mini-2025-04-14",
+                             temperature=0.2,
+                             top_p=0.95)
+            logger.info("Successfully initialized GPT model")
+        except Exception as e:
+            logger.error(f"Failed to initialize GPT model: {e}")
+            gpt = None
 
     # Initialize Claude LLM specifically for code execution
-    claude = ChatAnthropic(model_name="claude-3-7-sonnet-latest",
-                           anthropic_api_key=anthropic_api_key,
-                           temperature=0.01,
-                           max_tokens=4096)
+    if anthropic_api_key:
+        try:
+            claude = ChatAnthropic(model_name="claude-3-7-sonnet-latest",
+                                   anthropic_api_key=anthropic_api_key,
+                                   temperature=0.01,
+                                   max_tokens=4096)
+        except Exception as e:
+            logger.error(f"Failed to initialize Claude model: {e}")
+            claude = None
 
     # Initialize Gemini LLM
-    if gemini_available and gemini_api_key:
+    if gemini_api_key:
         try:
             gemini = ChatGoogleGenerativeAI(
                 model='gemini-2.0-flash-001',  # Same model as main LLM
@@ -332,49 +338,48 @@ def get_workflow_app():
     wikipedia_tool = None
     repl_tool = None
 
-    if tools_available:
-        # Initiate Tavily Search with enhanced configuration
-        if tavily_api_key:
-            try:
-                tavily_search = TavilySearchResults(
-                    api_key=tavily_api_key,
-                    k=5,  # Number of results
-                    include_raw_content=True,  # Include the raw content
-                    include_images=False,
-                    include_answer=True,
-                    max_results=5,
-                    search_depth="advanced")
-                logger.info("Successfully initialized Tavily Search")
-            except Exception as e:
-                logger.error(f"Failed to initialize Tavily Search: {e}")
-
-        # Define Wikipedia Tool with explicit name
+    # Initiate Tavily Search with enhanced configuration
+    if tavily_api_key:
         try:
-            api_wrapper = WikipediaAPIWrapper(top_k_results=1)
-            wikipedia_tool = WikipediaQueryRun(api_wrapper=api_wrapper)
-
-            # Set the name explicitly to match what the frontend is expecting
-            wikipedia_tool.name = "wikipedia_query_run"
-            wikipedia_tool.description = "Searches Wikipedia for information about a given topic."
-
-            logger.info(
-                f"Registered Wikipedia tool with name: {wikipedia_tool.name}")
+            tavily_search = TavilySearchResults(
+                api_key=tavily_api_key,
+                k=5,  # Number of results
+                include_raw_content=True,  # Include the raw content
+                include_images=False,
+                include_answer=True,
+                max_results=5,
+                search_depth="advanced")
+            logger.info("Successfully initialized Tavily Search")
         except Exception as e:
-            logger.error(f"Failed to initialize Wikipedia tool: {e}")
+            logger.error(f"Failed to initialize Tavily Search: {e}")
 
-        # Define PythonREPL Tool with explicit name
-        try:
-            # You can create the tool to pass to an agent
-            repl_tool = Tool(
-                name="python_repl",
-                description="""
-                A Python shell. Use this to execute python commands. Input should be a valid python command. 
-                If you want to see the output of a value, you should print it out with `print(...)`.
-                """,
-                func=PythonREPL().run,
-            )
-        except Exception as e:
-            logger.error(f"Failed to initialize PythonREPL tool: {e}")
+    # Define Wikipedia Tool with explicit name
+    try:
+        api_wrapper = WikipediaAPIWrapper(top_k_results=1)
+        wikipedia_tool = WikipediaQueryRun(api_wrapper=api_wrapper)
+
+        # Set the name explicitly to match what the frontend is expecting
+        wikipedia_tool.name = "wikipedia_query_run"
+        wikipedia_tool.description = "Searches Wikipedia for information about a given topic."
+
+        logger.info(
+            f"Registered Wikipedia tool with name: {wikipedia_tool.name}")
+    except Exception as e:
+        logger.error(f"Failed to initialize Wikipedia tool: {e}")
+
+    # Define PythonREPL Tool with explicit name
+    try:
+        # You can create the tool to pass to an agent
+        repl_tool = Tool(
+            name="python_repl",
+            description="""
+            A Python shell. Use this to execute python commands. Input should be a valid python command. 
+            If you want to see the output of a value, you should print it out with `print(...)`.
+            """,
+            func=PythonREPL().run,
+        )
+    except Exception as e:
+        logger.error(f"Failed to initialize PythonREPL tool: {e}")
 
     # Create agents only if required components are available
     agents = []

@@ -12,6 +12,7 @@ import os
 import logging
 import traceback
 from contextlib import contextmanager
+from app import app
 
 # Configure logging
 logging.basicConfig(
