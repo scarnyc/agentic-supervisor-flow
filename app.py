@@ -195,6 +195,13 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     if "__is_handoff_back" in metadata:
                                         current_agent = None
                                         continue
+
+                                # Check if we need to return control to supervisor after search agent completes
+                                if current_agent == "search_agent" and hasattr(last_message, 'content'):
+                                    if not any(x in last_message.content for x in ["Action:", "Observation:"]):
+                                        metadata = getattr(last_message, 'response_metadata', {})
+                                        metadata["__is_handoff_back"] = True
+                                        current_agent = None
                                 
                                 # Track the tool name if available
                                 if hasattr(last_message, 'name'):
