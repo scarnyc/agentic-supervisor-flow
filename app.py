@@ -13,10 +13,40 @@ from agent import get_workflow_app, process_citations
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 logger = logging.getLogger(__name__)
+
+from typing import TypedDict, Dict, Any, List
+from langgraph.graph import WorkflowContext
+from typing import Annotated
+
+class AgentState(TypedDict):
+    messages: List[Dict[str, Any]]
+    current_agent: str
+    next_agent: str
+
+def log_transfer(state: AgentState, context: Annotated[WorkflowContext, "context"]) -> AgentState:
+    """Log when control transfers between agents"""
+    current = state.get("current_agent", "supervisor")
+    next_agent = context.current_node
+
+    logger.info(f"Transfer: {current} -> {next_agent}")
+    logger.debug(f"Full state during transfer: {state}")
+    logger.debug(f"Context details: {vars(context)}")
+
+    state["current_agent"] = next_agent
+
+    # Log the last message if it exists
+    if state["messages"]:
+        last_msg = state["messages"][-1]
+        logger.info(f"Last message from {current}: {last_msg.content[:100]}...")
+        logger.debug(f"Full message content: {last_msg.content}")
+        logger.debug(f"Message type: {type(last_msg)}")
+        logger.debug(f"Message attributes: {vars(last_msg)}")
+
+    return state
 
 # Add handlers *after* basicConfig is called
 handler = logging.StreamHandler()
