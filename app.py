@@ -15,7 +15,10 @@ from agent import get_workflow_app, process_citations
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler()])
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('app.log')
+    ])
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI
