@@ -6,9 +6,9 @@ This project implements a multi-agent workflow that acts as an AI Copilot, capab
 
 The system uses a supervisor-based architecture with specialized agents:
 
-1. **Search Agent (GPT-4.1)** - Web search capabilities using Tavily API
-2. **Code Agent (GPT-4.1)** - Secure code execution with Python REPL
-3. **Wiki Agent (GPT-4.1)** - Wikipedia knowledge access
+1. **Search Agent (Claude 3.7)** - Web search capabilities using Tavily API
+2. **Code Agent (Claude 3.7)** - Secure code execution with Python REPL
+3. **Wiki Agent (Claude 3.7)** - Wikipedia knowledge access
 
 The system is built using:
 - **FastAPI** - For backend API and WebSockets
@@ -34,7 +34,7 @@ bash setup.sh
 
 3. Create a `.env` file with your API keys:
 ```
-OPENAI_API_KEY=your_openai_key
+ANTHROPIC_API_KEY=your_anthropic_key
 TAVILY_API_KEY=your_tavily_key
 ```
 
@@ -49,7 +49,7 @@ uvicorn main:app --host 0.0.0.0 --port 5000
 - FastAPI
 - LangGraph & LangGraph-Supervisor
 - Langchain
-- OpenAI Python SDK
+- Anthropic Python SDK
 - Tavily Search API
 
 ## Security Features
@@ -73,17 +73,17 @@ uvicorn main:app --host 0.0.0.0 --port 5000
 User Query
     │
     ▼
-┌─────────────┐
-│ Supervisor  │
-│   (GPT-4.1) │
-└─────────────┘
+┌───────────────┐
+│ Supervisor    │
+│ (Claude 3.7)  │
+└───────────────┘
     │
     ├─────────────────┬─────────────────┐
     │                 │                 │
     ▼                 ▼                 ▼
 ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
 │Search Agent │  │ Code Agent  │  │ Wiki Agent  │
-│  (GPT-4.1)  │  │  (GPT-4.1)  │  │  (GPT-4.1)  │
+│ (Claude 3.7)│  │(Claude 3.7) │  │(Claude 3.7) │
 └─────────────┘  └─────────────┘  └─────────────┘
     │                 │                 │
     ▼                 ▼                 ▼
