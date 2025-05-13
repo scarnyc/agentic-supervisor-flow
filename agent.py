@@ -23,10 +23,10 @@ from langchain_core.messages import AIMessage
 from langchain_openai import ChatOpenAI
 
 # Module for setting up Google Gen AI
-from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Module for setting up Anthropic's Claude
-from langchain_anthropic import ChatAnthropic
+# from langchain_anthropic import ChatAnthropic
 
 # Modules for creating ReAct agents with Supervisor architecture
 from langgraph_supervisor import create_supervisor
@@ -272,23 +272,23 @@ def get_workflow_app():
         raise ValueError(error_msg)
 
     # Initialize Gemini
-    gemini_api_key = os.getenv("GEMINI_API_KEY")
-    if not gemini_api_key:
-        logger.warning("GEMINI_API_KEY environment variable not set.")
-        logger.warning(
-            "Please set the GEMINI_API_KEY environment variable in your .env file"
-        )
-        logger.warning(
-            "You can get an API key from Google AI Studio: https://makersuite.google.com/"
-        )
+    # gemini_api_key = os.getenv("GEMINI_API_KEY")
+    # if not gemini_api_key:
+    #     logger.warning("GEMINI_API_KEY environment variable not set.")
+    #     logger.warning(
+    #         "Please set the GEMINI_API_KEY environment variable in your .env file"
+    #     )
+    #     logger.warning(
+    #         "You can get an API key from Google AI Studio: https://makersuite.google.com/"
+    #     )
 
     # Initialize Anthropic/Claude
-    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not anthropic_api_key:
-        logger.warning("ANTHROPIC_API_KEY environment variable not set.")
-        logger.warning(
-            "Please set the ANTHROPIC_API_KEY environment variable in your .env file"
-        )
+    # anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+    # if not anthropic_api_key:
+    #     logger.warning("ANTHROPIC_API_KEY environment variable not set.")
+    #     logger.warning(
+    #         "Please set the ANTHROPIC_API_KEY environment variable in your .env file"
+    #     )
 
     # Initialize Tavily Search
     tavily_api_key = os.getenv("TAVILY_API_KEY")
@@ -301,39 +301,40 @@ def get_workflow_app():
     # Initialize GPT
     if openai_api_key:
         try:
-            gpt = ChatOpenAI(model_name="gpt-4.1-mini-2025-04-14",
-                 temperature=0.2,
-                 top_p=0.95,
-                 # Disable function calling to avoid conflicts with tool calls
-                 function_call=None)
+            gpt = ChatOpenAI(
+                model_name="gpt-4.1-mini-2025-04-14",
+                temperature=0.2,
+                top_p=0.95,
+                # Disable function calling to avoid conflicts with tool calls
+                function_call=None)
             logger.info("Successfully initialized GPT model")
         except Exception as e:
             logger.error(f"Failed to initialize GPT model: {e}")
             gpt = None
 
     # Initialize Claude LLM specifically for code execution
-    if anthropic_api_key:
-        try:
-            claude = ChatAnthropic(model_name="claude-3-7-sonnet-latest",
-                                   anthropic_api_key=anthropic_api_key,
-                                   temperature=0.01,
-                                   max_tokens=4096)
-        except Exception as e:
-            logger.error(f"Failed to initialize Claude model: {e}")
-            claude = None
+    # if anthropic_api_key:
+    #     try:
+    #         claude = ChatAnthropic(model_name="claude-3-7-sonnet-latest",
+    #                                anthropic_api_key=anthropic_api_key,
+    #                                temperature=0.01,
+    #                                max_tokens=4096)
+    #     except Exception as e:
+    #         logger.error(f"Failed to initialize Claude model: {e}")
+    #         claude = None
 
     # Initialize Gemini LLM
-    if gemini_api_key:
-        try:
-            gemini = ChatGoogleGenerativeAI(
-                model='gemini-2.0-flash-001',  # Same model as main LLM
-                google_api_key=gemini_api_key,
-                temperature=0.01,
-                max_output_tokens=2048)
-            logger.info("Successfully initialized Gemini model")
-        except Exception as e:
-            logger.error(f"Failed to initialize Gemini model: {e}")
-            gemini = None
+    # if gemini_api_key:
+    #     try:
+    #         gemini = ChatGoogleGenerativeAI(
+    #             model='gemini-2.0-flash-001',  # Same model as main LLM
+    #             google_api_key=gemini_api_key,
+    #             temperature=0.01,
+    #             max_output_tokens=2048)
+    #         logger.info("Successfully initialized Gemini model")
+    #     except Exception as e:
+    #         logger.error(f"Failed to initialize Gemini model: {e}")
+    #         gemini = None
 
     # Initialize tools
     tavily_search = None
@@ -387,9 +388,9 @@ def get_workflow_app():
     agents = []
 
     # Enhanced search agent with better citation handling
-    if gemini and tavily_search:
+    if gpt and tavily_search:
         try:
-            search_agent = create_react_agent(model=gemini,
+            search_agent = create_react_agent(model=gpt,
                                               tools=[tavily_search],
                                               name="search_agent",
                                               prompt="""
@@ -431,10 +432,10 @@ def get_workflow_app():
         except Exception as e:
             logger.error(f"Failed to create search agent: {e}")
 
-    if claude and repl_tool:
+    if gpt and repl_tool:
         try:
             code_agent = create_react_agent(
-                model=claude,
+                model=gpt,
                 tools=[repl_tool],  # Code agent uses built-in code execution
                 name="code_agent",
                 prompt="""
