@@ -1,7 +1,3 @@
-` tags, ensuring no omissions or forbidden words are present.
-
-```
-<replit_final_file>
 # AI Copilot Multi-Agent Workflow Implementation
 
 This project implements a multi-agent workflow that acts as an AI Copilot, capable of using multiple tools and specialized agents to assist users with a wide range of tasks.
@@ -94,3 +90,33 @@ User Query
 ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
 │Tavily Search│  │Python REPL  │  │Wikipedia API│
 └─────────────┘  └─────────────┘  └─────────────┘
+
+```
+## Next Steps
+
+### v0
+- Upgraded web search with Google SerpAPI
+- Code execution in secure environment for Data Analysis
+
+### v1
+- Human in the loop (stop and ask for input)
+- Google oAuth
+- MCP Servers
+- Slack, LinkedIn, gmail, Nasa toolkit
+
+### v2
+- Generative UI
+- Support for Gemini 2.5 Pro Reasoning
+- Support for GPT 4.1 for writing
+- Long Memory
+
+### v3
+- Planning: research, generation, reflection
+- Persist user Chat history (UI)
+- Evals, monitoring and logging
+- Experiment with thinking budget / prompt caching
+
+### V4
+- Computer Use, RAG
+- User-input OpenAI / Gemini API Key
+```
