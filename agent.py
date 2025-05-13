@@ -20,13 +20,13 @@ import logging
 from langchain_core.messages import AIMessage
 
 # Module for setting up OpenAI
-from langchain_openai import ChatOpenAI
+# from langchain_openai import ChatOpenAI
 
 # Module for setting up Google Gen AI
 # from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Module for setting up Anthropic's Claude
-# from langchain_anthropic import ChatAnthropic
+from langchain_anthropic import ChatAnthropic
 
 # Modules for creating ReAct agents with Supervisor architecture
 from langgraph_supervisor import create_supervisor
@@ -265,11 +265,11 @@ def get_workflow_app():
     # --- LangChain/LangGraph Setup ---
 
     # Initialize OpenAI
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    if not openai_api_key:
-        error_msg = "OPENAI_API_KEY environment variable not set"
-        logger.error(error_msg)
-        raise ValueError(error_msg)
+    # openai_api_key = os.getenv("OPENAI_API_KEY")
+    # if not openai_api_key:
+    #     error_msg = "OPENAI_API_KEY environment variable not set"
+    #     logger.error(error_msg)
+    #     raise ValueError(error_msg)
 
     # Initialize Gemini
     # gemini_api_key = os.getenv("GEMINI_API_KEY")
@@ -283,12 +283,12 @@ def get_workflow_app():
     #     )
 
     # Initialize Anthropic/Claude
-    # anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
-    # if not anthropic_api_key:
-    #     logger.warning("ANTHROPIC_API_KEY environment variable not set.")
-    #     logger.warning(
-    #         "Please set the ANTHROPIC_API_KEY environment variable in your .env file"
-    #     )
+    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not anthropic_api_key:
+        logger.warning("ANTHROPIC_API_KEY environment variable not set.")
+        logger.warning(
+            "Please set the ANTHROPIC_API_KEY environment variable in your .env file"
+        )
 
     # Initialize Tavily Search
     tavily_api_key = os.getenv("TAVILY_API_KEY")
@@ -388,9 +388,9 @@ def get_workflow_app():
     agents = []
 
     # Enhanced search agent with better citation handling
-    if gpt and tavily_search:
+    if claude and tavily_search:
         try:
-            search_agent = create_react_agent(model=gpt,
+            search_agent = create_react_agent(model=claude,
                                               tools=[tavily_search],
                                               name="search_agent",
                                               prompt="""
@@ -432,10 +432,10 @@ def get_workflow_app():
         except Exception as e:
             logger.error(f"Failed to create search agent: {e}")
 
-    if gpt and repl_tool:
+    if claude and repl_tool:
         try:
             code_agent = create_react_agent(
-                model=gpt,
+                model=claude,
                 tools=[repl_tool],  # Code agent uses built-in code execution
                 name="code_agent",
                 prompt="""
@@ -457,9 +457,9 @@ def get_workflow_app():
         except Exception as e:
             logger.error(f"Failed to create code agent: {e}")
 
-    if gpt and wikipedia_tool:
+    if claude and wikipedia_tool:
         try:
-            wiki_agent = create_react_agent(model=gpt,
+            wiki_agent = create_react_agent(model=claude,
                                             tools=[wikipedia_tool],
                                             name="wiki_agent",
                                             prompt="""
@@ -486,7 +486,7 @@ def get_workflow_app():
     # Create supervisor workflow
     try:
         workflow = create_supervisor(agents,
-                                     model=gpt,
+                                     model=claude,
                                      prompt=get_enhanced_supervisor_prompt(),
                                      output_mode="full_history",
                                      parallel_tool_calls=False)
