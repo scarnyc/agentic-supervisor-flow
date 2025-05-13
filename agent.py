@@ -272,7 +272,7 @@ def get_workflow_app():
         max_output_tokens=2048)
 
     # Initialize Claude LLM specifically for code execution
-    claude = ChatAnthropic(model_name="claude-3-7-sonnet-20240229",
+    claude = ChatAnthropic(model_name="claude-3-7-sonnet-latest",
                            anthropic_api_key=anthropic_api_key,
                            temperature=0.01,
                            max_tokens=4096)
