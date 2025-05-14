@@ -1,4 +1,4 @@
-/* Enhanced styles.css that preserves all existing functionality */
+/* Fixed styles.css with more compact message bubbles */
 
 :root {
     --bg-color: #121212;
@@ -10,23 +10,14 @@
     --user-message-bg: #333333;
     --assistant-message-bg: #1a1a1a;
     --link-color: #8cc0ff;
-    /* Variable for link color */
     --link-hover-color: #aad4ff;
-    /* Variable for link hover color */
     --code-bg: #252525;
-    /* Variable for code background */
     --blockquote-border: #555555;
-    /* Variable for blockquote border */
     --heading-color: #bb86fc;
-    /* Variable for heading color */
     --table-border: #444444;
-    /* Variable for table borders */
     --table-header-bg: #2a2a2a;
-    /* Variable for table header background */
     --table-alt-row: #222222;
-    /* Variable for alternate row background */
     --hr-color: #444444;
-    /* Variable for horizontal rule color */
 
     /* New variables for enhanced features */
     --secondary-color: #03dac6;
@@ -57,9 +48,7 @@ body {
 .chat-container {
     width: 100%;
     max-width: 800px;
-    /* Increased from 400px */
     height: 700px;
-    /* Increased from 600px */
     background-color: var(--bg-color);
     border-radius: 12px;
     overflow: hidden;
@@ -73,7 +62,6 @@ body {
     padding: 15px 20px;
     display: flex;
     justify-content: center;
-    /* Changed from space-between */
     align-items: center;
     border-bottom: 1px solid var(--border-color);
     height: 90px;
@@ -96,14 +84,15 @@ body {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 10px; /* Reduced from 15px */
 }
 
+/* FIXED: More compact message bubbles */
 .message {
     max-width: 80%;
-    padding: 0.75rem 1rem;
+    padding: 0.5rem 0.75rem; /* Reduced from 0.75rem 1rem */
     border-radius: 1.125rem;
-    line-height: 1.4;
+    line-height: 1.3; /* Reduced from 1.4 */
     word-wrap: break-word;
     overflow-wrap: break-word;
     white-space: pre-wrap;
@@ -111,15 +100,8 @@ body {
 }
 
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .user {
@@ -134,26 +116,26 @@ body {
     border-bottom-left-radius: 4px;
 }
 
-/* Markdown styling for message content */
+/* FIXED: Tightened message content spacing */
 .message-content {
     color: var(--text-color);
-    font-size: 1rem;
+    font-size: 0.95rem; /* Slightly reduced from 1rem */
     width: 100%;
     overflow-wrap: break-word;
     word-wrap: break-word;
     word-break: break-word;
 }
 
-/* Paragraph spacing */
+/* FIXED: Reduced paragraph spacing */
 .message-content p {
-    margin-bottom: 0.8em;
+    margin-bottom: 0.5em; /* Reduced from 0.8em */
 }
 
 .message-content p:last-child {
     margin-bottom: 0;
 }
 
-/* Headings */
+/* Headings - kept for consistency */
 .message-content h1,
 .message-content h2,
 .message-content h3,
@@ -162,105 +144,103 @@ body {
 .message-content h6 {
     color: var(--heading-color);
     font-weight: 600;
-    margin-top: 1em;
-    margin-bottom: 0.5em;
+    margin-top: 0.8em; /* Reduced from 1em */
+    margin-bottom: 0.4em; /* Reduced from 0.5em */
     line-height: 1.3;
     display: block;
-    /* Ensures block display */
     width: 100%;
-    /* Full width */
 }
 
 .message-content h1 {
-    font-size: 1.6em;
+    font-size: 1.5em; /* Slightly reduced */
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 0.3em;
 }
 
 .message-content h2 {
-    font-size: 1.4em;
+    font-size: 1.3em; /* Slightly reduced */
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 0.3em;
 }
 
 .message-content h3 {
-    font-size: 1.2em;
+    font-size: 1.15em; /* Slightly reduced */
 }
 
 .message-content h4 {
-    font-size: 1.1em;
+    font-size: 1.05em; /* Slightly reduced */
 }
 
 .message-content h5,
 .message-content h6 {
-    font-size: 1em;
+    font-size: 0.95em; /* Slightly reduced */
 }
 
-/* Lists */
+/* Lists - more compact */
 .message-content ul,
 .message-content ol {
-    margin-top: 0.5em;
-    margin-bottom: 1em;
-    padding-left: 2em;
+    margin-top: 0.4em; /* Reduced from 0.5em */
+    margin-bottom: 0.8em; /* Reduced from 1em */
+    padding-left: 1.5em; /* Reduced from 2em */
 }
 
 .message-content li {
-    margin-bottom: 0.3em;
+    margin-bottom: 0.2em; /* Reduced from 0.3em */
 }
 
 .message-content li>ul,
 .message-content li>ol {
-    margin-top: 0.3em;
-    margin-bottom: 0.3em;
+    margin-top: 0.2em; /* Reduced from 0.3em */
+    margin-bottom: 0.2em; /* Reduced from 0.3em */
 }
 
 /* Blockquotes */
 .message-content blockquote {
     border-left: 3px solid var(--blockquote-border);
-    padding-left: 1em;
-    margin: 1em 0;
+    padding-left: 0.8em; /* Reduced from 1em */
+    margin: 0.8em 0; /* Reduced from 1em */
     color: #bbb;
 }
 
-/* Code blocks */
+/* Code blocks - more compact */
 .message-content pre {
     background: var(--code-bg);
     border-radius: 5px;
-    padding: 12px;
+    padding: 10px; /* Reduced from 12px */
     overflow-x: auto;
-    margin: 1em 0;
+    margin: 0.8em 0; /* Reduced from 1em */
     border: 1px solid var(--border-color);
 }
 
 .message-content code {
     font-family: 'Courier New', monospace;
-    font-size: 14px;
+    font-size: 13px; /* Reduced from 14px */
 }
 
 /* Inline code */
 .message-content :not(pre)>code {
     background: var(--code-bg);
-    padding: 2px 4px;
+    padding: 2px 3px; /* Reduced horizontally */
     border-radius: 3px;
-    font-size: 90%;
+    font-size: 85%; /* Reduced from 90% */
 }
 
 /* Tables */
 .message-content table {
     width: 100%;
     border-collapse: collapse;
-    margin: 1em 0;
+    margin: 0.8em 0; /* Reduced from 1em */
 }
 
 .message-content th {
     background-color: var(--table-header-bg);
-    padding: 8px;
+    padding: 6px; /* Reduced from 8px */
     text-align: left;
     border: 1px solid var(--table-border);
 }
 
 .message-content td {
-    padding: 8px;
+    padding: 6px; /* Reduced from 8px */
     border: 1px solid var(--table-border);
 }
 
@@ -273,7 +253,7 @@ body {
     height: 1px;
     background-color: var(--hr-color);
     border: none;
-    margin: 1.5em 0;
+    margin: 1.2em 0; /* Reduced from 1.5em */
 }
 
 /* Images */
@@ -281,7 +261,7 @@ body {
     max-width: 100%;
     height: auto;
     border-radius: 4px;
-    margin: 1em 0;
+    margin: 0.8em 0; /* Reduced from 1em */
 }
 
 /* Links */
@@ -298,12 +278,11 @@ body {
 
 /* Task lists */
 .message-content input[type="checkbox"] {
-    margin-right: 0.5em;
+    margin-right: 0.4em; /* Reduced from 0.5em */
 }
 
 .chat-input-container {
-    padding: 20px;
-    /* Increased from 15px */
+    padding: 15px; /* Reduced from 20px */
     display: flex;
     align-items: center;
     border-top: 1px solid var(--border-color);
@@ -315,17 +294,13 @@ body {
     background-color: var(--input-bg);
     border: none;
     border-radius: 20px;
-    padding: 15px 20px;
-    /* Increased from 12px 15px */
+    padding: 12px 15px; /* Reduced from 15px 20px */
     color: var(--text-color);
     resize: none;
-    min-height: 50px;
-    /* Increased minimum height */
+    min-height: 45px; /* Reduced from 50px */
     max-height: 150px;
-    /* Increased from 100px */
     overflow-y: auto;
     font-size: 16px;
-    /* Added font size */
     transition: box-shadow 0.3s ease;
 }
 
@@ -338,14 +313,11 @@ body {
     background: none;
     border: none;
     color: var(--text-color);
-    font-size: 20px;
-    margin-left: 15px;
-    /* Increased from 10px */
+    font-size: 18px; /* Reduced from 20px */
+    margin-left: 12px; /* Reduced from 15px */
     cursor: pointer;
-    width: 50px;
-    /* Increased from 40px */
-    height: 50px;
-    /* Increased from 40px */
+    width: 45px; /* Reduced from 50px */
+    height: 45px; /* Reduced from 50px */
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -365,10 +337,10 @@ body {
 }
 
 .chat-footer {
-    padding: 10px;
+    padding: 8px; /* Reduced from 10px */
     text-align: center;
     color: #888;
-    font-size: 12px;
+    font-size: 11px; /* Reduced from 12px */
     border-top: 1px solid var(--border-color);
 }
 
@@ -376,12 +348,12 @@ body {
 .typing-indicator {
     display: flex;
     align-items: center;
-    padding: 10px 15px;
+    padding: 8px 12px; /* Reduced from 10px 15px */
 }
 
 .typing-indicator span {
-    height: 8px;
-    width: 8px;
+    height: 7px; /* Reduced from 8px */
+    width: 7px; /* Reduced from 8px */
     background-color: #bbb;
     border-radius: 50%;
     display: inline-block;
@@ -398,16 +370,8 @@ body {
 }
 
 @keyframes bounce {
-
-    0%,
-    80%,
-    100% {
-        transform: translateY(0);
-    }
-
-    40% {
-        transform: translateY(-8px);
-    }
+    0%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-7px); } /* Reduced from -8px */
 }
 
 /* Citation styling */
@@ -422,36 +386,36 @@ body {
 }
 
 .citation-marker {
-    font-size: 0.7em;
+    font-size: 0.65em; /* Reduced from 0.7em */
     color: var(--primary-color);
     vertical-align: super;
     margin-left: 2px;
 }
 
 .sources-section {
-    margin-top: 15px;
-    padding-top: 10px;
+    margin-top: 12px; /* Reduced from 15px */
+    padding-top: 8px; /* Reduced from 10px */
     border-top: 1px solid var(--border-color);
     background-color: rgba(255, 255, 255, 0.03);
-    border-radius: 6px;
-    padding: 12px;
+    border-radius: 5px; /* Reduced from 6px */
+    padding: 10px; /* Reduced from 12px */
 }
 
 .sources-section h4 {
     color: var(--primary-color);
-    margin-bottom: 8px;
-    font-size: 16px;
+    margin-bottom: 6px; /* Reduced from 8px */
+    font-size: 15px; /* Reduced from 16px */
 }
 
 .sources-list {
-    margin-left: 20px;
-    font-size: 0.9em;
+    margin-left: 18px; /* Reduced from 20px */
+    font-size: 0.85em; /* Reduced from 0.9em */
     color: #999;
 }
 
 .source-item {
-    margin-bottom: 5px;
-    padding: 4px 0;
+    margin-bottom: 4px; /* Reduced from 5px */
+    padding: 3px 0; /* Reduced from 4px */
     transition: background-color 0.2s ease;
 }
 
@@ -468,50 +432,52 @@ body {
     text-decoration: underline;
 }
 
-/* Enhanced code execution result styling */
+/* Enhanced code execution result styling - more compact */
 .code-execution-result {
     background-color: var(--execution-result-bg, #1b2634);
     border-left: 3px solid var(--primary-color);
-    padding: 12px;
-    margin: 12px 0;
-    border-radius: 6px;
+    padding: 10px; /* Reduced from 12px */
+    margin: 10px 0; /* Reduced from 12px */
+    border-radius: 5px; /* Reduced from 6px */
     font-family: 'Courier New', monospace;
     overflow-x: auto;
     border: 1px solid var(--execution-result-border, #234c6c);
+    font-size: 0.9em; /* Added to make more compact */
 }
 
-/* Enhanced code execution error styling */
+/* Enhanced code execution error styling - more compact */
 .code-execution-error {
     background-color: var(--execution-error-bg, #32232a);
     border-left: 3px solid var(--error-color, #cf6679);
-    padding: 12px;
-    margin: 12px 0;
-    border-radius: 6px;
+    padding: 10px; /* Reduced from 12px */
+    margin: 10px 0; /* Reduced from 12px */
+    border-radius: 5px; /* Reduced from 6px */
     font-family: 'Courier New', monospace;
     overflow-x: auto;
     border: 1px solid var(--execution-error-border, #683e50);
+    font-size: 0.9em; /* Added to make more compact */
 }
 
-/* Agent transition styling */
+/* Agent transition styling - more compact */
 .agent-transition {
     background-color: var(--agent-transition-bg, #2a2c34);
     color: var(--secondary-color, #03dac6);
-    padding: 6px 12px;
-    border-radius: 12px;
-    font-size: 0.85em;
-    margin: 8px 0;
+    padding: 4px 10px; /* Reduced from 6px 12px */
+    border-radius: 10px; /* Reduced from 12px */
+    font-size: 0.8em; /* Reduced from 0.85em */
+    margin: 6px 0; /* Reduced from 8px */
     align-self: center;
-    border-left: 3px solid var(--secondary-color, #03dac6);
+    border-left: 2px solid var(--secondary-color, #03dac6); /* Reduced from 3px */
     max-width: 90%;
     text-align: center;
 }
 
 .tool-indicator {
     display: inline-block;
-    padding: 2px 6px;
-    margin-right: 6px;
-    border-radius: 4px;
-    font-size: 0.8em;
+    padding: 1px 4px; /* Reduced from 2px 6px */
+    margin-right: 5px; /* Reduced from 6px */
+    border-radius: 3px; /* Reduced from 4px */
+    font-size: 0.75em; /* Reduced from 0.8em */
     font-weight: 500;
     background-color: rgba(187, 134, 252, 0.2);
     color: var(--primary-color);
