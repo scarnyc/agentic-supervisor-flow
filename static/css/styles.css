@@ -90,9 +90,12 @@ body {
 
 .message {
     max-width: 80%;
-    padding: 12px 16px;
-    border-radius: 18px;
+    padding: 0.75rem 1rem;
+    border-radius: 1.125rem;
     line-height: 1.4;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 .user {
@@ -110,6 +113,11 @@ body {
 /* Markdown styling for message content */
 .message-content {
     color: var(--text-color);
+    font-size: 1rem;
+    width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
 }
 
 /* Paragraph spacing */
