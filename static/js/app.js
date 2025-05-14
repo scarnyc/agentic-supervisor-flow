@@ -6,9 +6,16 @@ document.addEventListener("DOMContentLoaded", function () {
     // Generate a random session ID
     const sessionId = Math.random().toString(36).substring(2, 15);
 
-    // Configure Marked.js
+    // Configure Marked.js with custom renderer
+    const renderer = new marked.Renderer();
+
+    // Customize heading renderer to ensure proper heading output
+    renderer.heading = function (text, level) {
+        return `<h${level}>${text}</h${level}>`;
+    };
+
     marked.setOptions({
-        renderer: new marked.Renderer(),
+        renderer: renderer,
         headerIds: false,
         gfm: true,
         breaks: true,
@@ -210,6 +217,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Format message content with enhanced markdown support and citation handling
     function formatMessage(content) {
+        if (!content) {
+            return "";
+        }
+
+        // Ensure content is a string
+        content = String(content);
+
         // Check if we should use special handling for code execution results
         const isCodeExecution = content.includes("**Code Execution Result:**");
 
@@ -234,7 +248,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Extract source section if it exists
         let sourcesSection = "";
-        const sourcesMatch = content.match(/Sources:\s*\n([\s\S]+)/);
+        const sourcesMatch = content.match(
+            /Sources:\s*(\n|<br>|<br\/>)([\s\S]+)/,
+        );
         if (sourcesMatch) {
             sourcesSection = sourcesMatch[0];
             content = content.replace(sourcesSection, "SOURCES_PLACEHOLDER");
@@ -244,7 +260,7 @@ document.addEventListener("DOMContentLoaded", function () {
         let codeExecutionBlock = "";
         if (isCodeExecution) {
             const codeExecMatch = content.match(
-                /\*\*Code Execution Result:\*\*\s*\n([\s\S]+?)(?=\n\n|$)/,
+                /\*\*Code Execution Result:\*\*\s*(\n|<br>|<br\/>)([\s\S]+?)(?=(\n\n|\n<br>|<br><br>|$))/,
             );
             if (codeExecMatch) {
                 codeExecutionBlock = codeExecMatch[0];
@@ -254,6 +270,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 );
             }
         }
+
+        // Normalize line breaks
+        content = content.replace(/<br\s*\/?>/gi, "\n");
+
+        // Ensure headings have proper spaces before and after
+        content = content.replace(/^(#+)([^\n#])/gm, "$1 $2");
+        content = content.replace(/(\n)(#+)([^\n#])/gm, "$1$2 $3");
 
         // Parse the content with Marked.js
         let formatted = marked.parse(content);
@@ -269,7 +292,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Handle special blocks that shouldn't be fully parsed by Markdown
         if (sourcesSection) {
             const sourcesList = sourcesSection
-                .split("\n")
+                .split(/\n|<br\s*\/?>/)
                 .slice(1)
                 .filter((s) => s.trim().length > 0);
             const sourcesHtml = sourcesList
