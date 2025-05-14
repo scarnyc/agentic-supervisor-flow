@@ -135,7 +135,7 @@ def main():
                             help='Host to run the server on')
         parser.add_argument('--port',
                             type=int,
-                            default=8000,
+                            default=5000,
                             help='Port to run the server on')
         parser.add_argument('--reload',
                             action='store_true',

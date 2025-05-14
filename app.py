@@ -235,6 +235,7 @@ def extract_content_from_result(result: Any) -> str:
 
 
 # Enhanced error handling for WebSocket in app.py
+@app.websocket("/api/chat/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     await websocket.accept()
 

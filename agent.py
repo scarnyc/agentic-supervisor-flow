@@ -533,9 +533,9 @@ def get_workflow_app():
     original_stream = app.stream
 
     # Create wrapped versions of invoke and stream that apply post-processing
-    def invoke_with_post_processing(input_data, config=None):
+    def invoke_with_post_processing(input_data, config=None, **kwargs):
         try:
-            result = original_invoke(input_data, config)
+            result = original_invoke(input_data, config, **kwargs)
             return process_citations(result)
         except Exception as e:
             logger.error(f"Error in invoke_with_post_processing: {e}")
@@ -545,10 +545,13 @@ def get_workflow_app():
                 [("assistant",
                   "Sorry, I encountered an error processing your request.")]
             }
-
-    def stream_with_post_processing(input_data, config=None):
+            
+    # Modify the stream_with_post_processing function to accept additional keywords
+    def stream_with_post_processing(input_data, config=None, **kwargs):
+        """Add **kwargs to handle additional parameters like stream_mode"""
         try:
-            for event in original_stream(input_data, config):
+            # Pass any additional kwargs to the original_stream function
+            for event in original_stream(input_data, config, **kwargs):
                 try:
                     yield process_citations(event)
                 except Exception as e:
