@@ -98,6 +98,7 @@ User Query
 - Upgraded web search with Google SerpAPI
 - Code execution in secure sandbox environment for Data Analysis
 - App optimized for speed & efficiency
+- Prompt optimization for all agents
 
 ### v1
 - Generative UI
@@ -107,7 +108,7 @@ User Query
   
 ### v2
 - Human in the loop (stop and ask for input)
-- Google oAuth
+- Log-in screen with Google oAuth for sign-in
 - MCP Servers
 - Slack, LinkedIn, gmail, Nasa toolkit
 - App optimized for security
@@ -115,8 +116,9 @@ User Query
 ### v3
 - Planning: research, generation, reflection
 - Persist user Chat history (UI)
-- Evals, monitoring and logging
+- Evals, monitoring & logging
 - Experiment with thinking budget / prompt caching
+- Show thinking output
 
 ### V4
 - Computer Use, RAG
