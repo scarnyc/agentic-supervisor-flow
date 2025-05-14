@@ -100,16 +100,16 @@ User Query
 - App optimized for speed, efficiency and security
 
 ### v1
+- Generative UI
+- Support for Gemini 2.5 Pro Reasoning vs. standard responses
+- Support for GPT 4.1 for writing
+- Long Memory
+  
+### v2
 - Human in the loop (stop and ask for input)
 - Google oAuth
 - MCP Servers
 - Slack, LinkedIn, gmail, Nasa toolkit
-
-### v2
-- Generative UI
-- Support for Gemini 2.5 Pro Reasoning
-- Support for GPT 4.1 for writing
-- Long Memory
 
 ### v3
 - Planning: research, generation, reflection

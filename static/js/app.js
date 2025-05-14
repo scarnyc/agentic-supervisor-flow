@@ -1,77 +1,54 @@
-document.addEventListener("DOMContentLoaded", function () {
-    const chatMessages = document.getElementById("chat-messages");
-    const chatInput = document.getElementById("chat-input");
-    const sendBtn = document.getElementById("send-btn");
+document.addEventListener('DOMContentLoaded', function() {
+    const chatMessages = document.getElementById('chat-messages');
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
 
     // Generate a random session ID
     const sessionId = Math.random().toString(36).substring(2, 15);
-
-    // Configure Marked.js with custom renderer
-    const renderer = new marked.Renderer();
-
-    // Customize heading renderer to ensure proper heading output
-    renderer.heading = function (text, level) {
-        return `<h${level}>${text}</h${level}>`;
-    };
-
-    marked.setOptions({
-        renderer: renderer,
-        headerIds: false,
-        gfm: true,
-        breaks: true,
-        pedantic: false,
-        sanitize: false,
-        smartLists: true,
-        smartypants: false,
-        xhtml: false,
-    });
 
     // WebSocket setup
     let socket;
     let isConnected = false;
 
     function initWebSocket() {
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        socket = new WebSocket(
-            `${protocol}//${window.location.host}/api/chat/ws/${sessionId}`,
-        );
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        socket = new WebSocket(`${protocol}//${window.location.host}/api/chat/ws/${sessionId}`);
 
-        socket.onopen = function (e) {
-            console.log("WebSocket connection established");
+        socket.onopen = function(e) {
+            console.log('WebSocket connection established');
             isConnected = true;
         };
 
-        socket.onmessage = function (event) {
+        socket.onmessage = function(event) {
             const data = JSON.parse(event.data);
 
-            if (data.type === "message_received") {
+            if (data.type === 'message_received') {
                 // User message already added, do nothing
-            } else if (data.type === "partial_response") {
+            } else if (data.type === 'partial_response') {
                 // Update or create assistant's message
                 updateAssistantMessage(data.message.content);
-            } else if (data.type === "message_complete") {
+            } else if (data.type === 'message_complete') {
                 // Finalize assistant's message
                 updateAssistantMessage(data.message.content, true);
 
                 // Remove typing indicator if present
-                const typingIndicator =
-                    document.querySelector(".typing-indicator");
+                const typingIndicator = document.querySelector('.typing-indicator');
                 if (typingIndicator) {
                     typingIndicator.remove();
                 }
             }
         };
 
-        socket.onclose = function (event) {
-            console.log("WebSocket connection closed");
+        socket.onclose = function(event) {
+            console.log('WebSocket connection closed');
             isConnected = false;
 
             // Try to reconnect after 2 seconds
             setTimeout(initWebSocket, 2000);
         };
 
-        socket.onerror = function (error) {
-            console.error("WebSocket error:", error);
+        socket.onerror = function(error) {
+            console.error('WebSocket error:', error);
             socket.close();
         };
     }
@@ -83,13 +60,13 @@ document.addEventListener("DOMContentLoaded", function () {
     function sendMessage() {
         const message = chatInput.value.trim();
 
-        if (message === "") return;
+        if (message === '') return;
 
         // Add user message to the chat
-        addMessage("user", message);
+        addMessage('user', message);
 
         // Clear input
-        chatInput.value = "";
+        chatInput.value = '';
         resetInputHeight();
 
         // Add typing indicator
@@ -97,64 +74,57 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Send message via WebSocket if connected
         if (isConnected) {
-            socket.send(
-                JSON.stringify({
-                    message: message,
-                }),
-            );
+            socket.send(JSON.stringify({
+                message: message
+            }));
         } else {
             // Fallback to REST API if WebSocket not connected
-            fetch("/api/chat", {
-                method: "POST",
+            fetch('/api/chat', {
+                method: 'POST',
                 headers: {
-                    "Content-Type": "application/json",
+                    'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
                     session_id: sessionId,
-                    message: message,
+                    message: message
                 }),
             })
-                .then((response) => response.json())
-                .then((data) => {
-                    // Remove typing indicator
-                    const typingIndicator =
-                        document.querySelector(".typing-indicator");
-                    if (typingIndicator) {
-                        typingIndicator.remove();
-                    }
+            .then(response => response.json())
+            .then(data => {
+                // Remove typing indicator
+                const typingIndicator = document.querySelector('.typing-indicator');
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
 
-                    // Add assistant message
-                    const messages = data.messages;
-                    const assistantMessage = messages[messages.length - 1];
-                    if (assistantMessage.role === "assistant") {
-                        addMessage("assistant", assistantMessage.content);
-                    }
-                })
-                .catch((error) => {
-                    console.error("Error:", error);
-                    // Remove typing indicator
-                    const typingIndicator =
-                        document.querySelector(".typing-indicator");
-                    if (typingIndicator) {
-                        typingIndicator.remove();
-                    }
+                // Add assistant message
+                const messages = data.messages;
+                const assistantMessage = messages[messages.length - 1];
+                if (assistantMessage.role === 'assistant') {
+                    addMessage('assistant', assistantMessage.content);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Remove typing indicator
+                const typingIndicator = document.querySelector('.typing-indicator');
+                if (typingIndicator) {
+                    typingIndicator.remove();
+                }
 
-                    // Add error message
-                    addMessage(
-                        "assistant",
-                        "Sorry, I encountered an error. Please try again.",
-                    );
-                });
+                // Add error message
+                addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+            });
         }
     }
 
     // Add a message to the chat
     function addMessage(role, content) {
-        const messageDiv = document.createElement("div");
+        const messageDiv = document.createElement('div');
         messageDiv.className = `message ${role}`;
 
-        const messageContent = document.createElement("div");
-        messageContent.className = "message-content";
+        const messageContent = document.createElement('div');
+        messageContent.className = 'message-content';
 
         // Process content to handle markdown-like formatting
         const formattedContent = formatMessage(content);
@@ -172,27 +142,20 @@ document.addEventListener("DOMContentLoaded", function () {
     // Update an existing assistant message or create a new one
     function updateAssistantMessage(content, isFinal = false) {
         // Remove typing indicator if it exists
-        const typingIndicator = document.querySelector(".typing-indicator");
+        const typingIndicator = document.querySelector('.typing-indicator');
         if (typingIndicator) {
             typingIndicator.remove();
         }
 
-        let assistantMessage = chatMessages.querySelector(
-            ".message.assistant:last-child",
-        );
+        let assistantMessage = chatMessages.querySelector('.message.assistant:last-child');
 
         // If the last message is a user message or there's no assistant message, create a new one
-        if (
-            !assistantMessage ||
-            assistantMessage.classList.contains("typing-indicator") ||
-            (assistantMessage.nextElementSibling &&
-                assistantMessage.nextElementSibling.classList.contains("user"))
-        ) {
-            assistantMessage = addMessage("assistant", content);
+        if (!assistantMessage || assistantMessage.classList.contains('typing-indicator') || 
+            assistantMessage.nextElementSibling && assistantMessage.nextElementSibling.classList.contains('user')) {
+            assistantMessage = addMessage('assistant', content);
         } else {
             // Update existing message
-            const messageContent =
-                assistantMessage.querySelector(".message-content");
+            const messageContent = assistantMessage.querySelector('.message-content');
             messageContent.innerHTML = formatMessage(content);
 
             // Scroll to bottom
@@ -206,9 +169,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Add typing indicator
     function addTypingIndicator() {
-        const typingDiv = document.createElement("div");
-        typingDiv.className = "message assistant typing-indicator";
-        typingDiv.innerHTML = "<span></span><span></span><span></span>";
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'message assistant typing-indicator';
+        typingDiv.innerHTML = '<span></span><span></span><span></span>';
         chatMessages.appendChild(typingDiv);
 
         // Scroll to bottom
@@ -218,88 +181,125 @@ document.addEventListener("DOMContentLoaded", function () {
     // Format message content with enhanced markdown support and citation handling
     function formatMessage(content) {
         if (!content) {
-            return "";
+            return '';
         }
 
         // Ensure content is a string
         content = String(content);
 
-        // Check if we should use special handling for code execution results
-        const isCodeExecution = content.includes("**Code Execution Result:**");
+        // Create a fresh copy of the content to work with
+        let processedContent = content;
 
-        // Extract citations before markdown parsing to ensure they aren't affected
-        const citations = [];
-        let citationIndex = 0;
+        // Arrays to store elements that should be preserved
+        const preservedSections = [];
 
-        // Replace citation tags with placeholders for preservation
-        content = content.replace(
-            /<cite index="([^"]+)">([^<]+)<\/cite>/g,
-            function (match, index, text) {
-                const placeholder = `CITATION_PLACEHOLDER_${citationIndex}`;
-                citations.push({
-                    placeholder: placeholder,
-                    index: index,
-                    text: text,
-                });
-                citationIndex++;
+        // Function to replace a section with a placeholder and store the original
+        function preserveSection(regex, content) {
+            return content.replace(regex, function(match) {
+                const placeholder = `PRESERVED_SECTION_${preservedSections.length}`;
+                preservedSections.push({ placeholder, content: match });
                 return placeholder;
-            },
-        );
-
-        // Extract source section if it exists
-        let sourcesSection = "";
-        const sourcesMatch = content.match(
-            /Sources:\s*(\n|<br>|<br\/>)([\s\S]+)/,
-        );
-        if (sourcesMatch) {
-            sourcesSection = sourcesMatch[0];
-            content = content.replace(sourcesSection, "SOURCES_PLACEHOLDER");
+            });
         }
 
-        // Extract code execution result block if it exists
-        let codeExecutionBlock = "";
-        if (isCodeExecution) {
-            const codeExecMatch = content.match(
-                /\*\*Code Execution Result:\*\*\s*(\n|<br>|<br\/>)([\s\S]+?)(?=(\n\n|\n<br>|<br><br>|$))/,
-            );
-            if (codeExecMatch) {
-                codeExecutionBlock = codeExecMatch[0];
-                content = content.replace(
-                    codeExecutionBlock,
-                    "CODE_EXECUTION_PLACEHOLDER",
-                );
-            }
-        }
+        // Save code blocks to prevent processing their contents
+        processedContent = preserveSection(/```[\s\S]*?```/g, processedContent);
 
-        // Normalize line breaks
-        content = content.replace(/<br\s*\/?>/gi, "\n");
+        // Save inline code to prevent processing their contents
+        processedContent = preserveSection(/`[^`]+`/g, processedContent);
 
-        // Ensure headings have proper spaces before and after
-        content = content.replace(/^(#+)([^\n#])/gm, "$1 $2");
-        content = content.replace(/(\n)(#+)([^\n#])/gm, "$1$2 $3");
-
-        // Parse the content with Marked.js
-        let formatted = marked.parse(content);
-
-        // Replace placeholders with original content
-        citations.forEach((citation) => {
-            formatted = formatted.replace(
-                citation.placeholder,
-                `<span class="citation" data-cite-index="${citation.index}">${citation.text}<sup class="citation-marker">[${citation.index}]</sup></span>`,
-            );
+        // Save citations
+        processedContent = processedContent.replace(/<cite index="([^"]+)">([^<]+)<\/cite>/g, function(match, index, text) {
+            const placeholder = `CITATION_SECTION_${preservedSections.length}`;
+            preservedSections.push({
+                placeholder, 
+                content: `<span class="citation" data-cite-index="${index}">${text}<sup class="citation-marker">[${index}]</sup></span>`
+            });
+            return placeholder;
         });
 
-        // Handle special blocks that shouldn't be fully parsed by Markdown
+        // Process special sections separately
+
+        // Check for code execution results
+        let codeExecSection = null;
+        const codeExecMatch = processedContent.match(/\*\*Code Execution Result:\*\*[\s\S]*?(?=\n\n|$)/);
+        if (codeExecMatch) {
+            codeExecSection = codeExecMatch[0];
+            processedContent = processedContent.replace(codeExecSection, 'CODE_EXEC_SECTION');
+        }
+
+        // Check for sources section
+        let sourcesSection = null;
+        const sourcesMatch = processedContent.match(/Sources:[\s\S]*?$/);
+        if (sourcesMatch) {
+            sourcesSection = sourcesMatch[0];
+            processedContent = processedContent.replace(sourcesSection, 'SOURCES_SECTION');
+        }
+
+        // Direct handling of Markdown headings (h1 - h6)
+        // This directly converts heading notation to HTML
+        for (let i = 6; i >= 1; i--) {
+            const headingRegex = new RegExp(`^${'#'.repeat(i)}\\s+(.+?)$`, 'gm');
+            processedContent = processedContent.replace(headingRegex, function(match, title) {
+                return `<h${i}>${title}</h${i}>`;
+            });
+        }
+
+        // Handle lists - Unordered lists
+        processedContent = processedContent.replace(/^(\s*)-\s+(.+?)$/gm, '<li>$2</li>');
+        processedContent = processedContent.replace(/(<li>.*?<\/li>\n)+/g, function(match) {
+            return `<ul>${match}</ul>`;
+        });
+
+        // Handle lists - Ordered lists
+        processedContent = processedContent.replace(/^(\s*)\d+\.\s+(.+?)$/gm, '<li>$2</li>');
+        processedContent = processedContent.replace(/(<li>.*?<\/li>\n)+/g, function(match) {
+            return `<ol>${match}</ol>`;
+        });
+
+        // Handle paragraphs - wrap text blocks in <p> tags
+        processedContent = processedContent.replace(/^(?!<h|<ul|<ol|<li|<blockquote|<pre)(.+?)$/gm, '<p>$1</p>');
+
+        // Handle line breaks
+        processedContent = processedContent.replace(/\n\n+/g, '<br><br>');
+        processedContent = processedContent.replace(/\n/g, '<br>');
+
+        // Handle bold text
+        processedContent = processedContent.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+
+        // Handle italic text
+        processedContent = processedContent.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+        // Handle links
+        processedContent = processedContent.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+        // Additional URL detection (for URLs not in Markdown link format)
+        processedContent = processedContent.replace(
+            /(?<![="\(])(https?:\/\/[^\s<]+)(?![^<]*>)/g, 
+            '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+        );
+
+        // Now restore all preserved sections
+        preservedSections.forEach(section => {
+            processedContent = processedContent.replace(section.placeholder, section.content);
+        });
+
+        // Handle Code Execution Result
+        if (codeExecSection) {
+            const formattedCodeExec = `
+                <div class='code-execution-result'>
+                    <strong>Code Execution Result:</strong><br><br>
+                    ${codeExecSection.replace('**Code Execution Result:**', '')}
+                </div>`;
+
+            processedContent = processedContent.replace('CODE_EXEC_SECTION', formattedCodeExec);
+        }
+
+        // Handle Sources Section
         if (sourcesSection) {
-            const sourcesList = sourcesSection
-                .split(/\n|<br\s*\/?>/)
-                .slice(1)
-                .filter((s) => s.trim().length > 0);
-            const sourcesHtml = sourcesList
-                .map(
-                    (source, index) => `<li class="source-item">${source}</li>`,
-                )
-                .join("");
+            const sourcesList = sourcesSection.replace('Sources:', '').split(/\n|<br\s*\/?>/).filter(s => s.trim().length > 0);
+            const sourcesHtml = sourcesList.map((source, index) => 
+                `<li class="source-item">${source}</li>`).join('');
 
             const formattedSourcesSection = `
                 <div class="sources-section">
@@ -307,38 +307,15 @@ document.addEventListener("DOMContentLoaded", function () {
                     <ol class="sources-list">${sourcesHtml}</ol>
                 </div>`;
 
-            formatted = formatted.replace(
-                "SOURCES_PLACEHOLDER",
-                formattedSourcesSection,
-            );
+            processedContent = processedContent.replace('SOURCES_SECTION', formattedSourcesSection);
         }
 
-        // Handle code execution result block
-        if (codeExecutionBlock && isCodeExecution) {
-            const formattedCodeExec = `
-                <div class='code-execution-result'>
-                    <strong>Code Execution Result:</strong><br><br>
-                    ${marked.parse(codeExecutionBlock.replace("**Code Execution Result:**", "").trim())}
-                </div>`;
-
-            formatted = formatted.replace(
-                "CODE_EXECUTION_PLACEHOLDER",
-                formattedCodeExec,
-            );
-        }
-
-        // Convert URLs to clickable links (if not already done by Markdown)
-        formatted = formatted.replace(
-            /(?<![="])(https?:\/\/[^\s<]+)(?![^<]*>)/g,
-            '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>',
-        );
-
-        return formatted;
+        return processedContent;
     }
 
     // Reset input height
     function resetInputHeight() {
-        chatInput.style.height = "";
+        chatInput.style.height = '';
     }
 
     // Auto-resize the textarea as the user types
@@ -346,20 +323,20 @@ document.addEventListener("DOMContentLoaded", function () {
         resetInputHeight();
         const maxHeight = 150; // Maximum height in pixels (increased from 100)
         if (chatInput.scrollHeight <= maxHeight) {
-            chatInput.style.height = chatInput.scrollHeight + "px";
+            chatInput.style.height = chatInput.scrollHeight + 'px';
         } else {
-            chatInput.style.height = maxHeight + "px";
+            chatInput.style.height = maxHeight + 'px';
         }
     }
 
     // Event listeners
-    sendBtn.addEventListener("click", sendMessage);
+    sendBtn.addEventListener('click', sendMessage);
 
-    chatInput.addEventListener("input", resizeTextarea);
+    chatInput.addEventListener('input', resizeTextarea);
 
-    chatInput.addEventListener("keydown", function (e) {
+    chatInput.addEventListener('keydown', function(e) {
         // Send message on Enter (without Shift)
-        if (e.key === "Enter" && !e.shiftKey) {
+        if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             sendMessage();
         }
