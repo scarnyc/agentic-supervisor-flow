@@ -38,7 +38,7 @@ from langchain_core.tools import Tool
 from langchain_community.utilities import WikipediaAPIWrapper
 from langchain_community.tools import WikipediaQueryRun
 from langchain_community.tools.tavily_search.tool import TavilySearchResults
-from langchain_experimental.utilities import PythonREPL
+from secure_executor import secure_python_exec
 
 # Import the prompt for the supervisor
 from prompt import get_enhanced_supervisor_prompt
@@ -375,16 +375,15 @@ def get_workflow_app():
     except Exception as e:
         logger.error(f"Failed to initialize Wikipedia tool: {e}")
 
-    # Define PythonREPL Tool with explicit name
+    # Define repl_tool with explicit name
     try:
-        # You can create the tool to pass to an agent
         repl_tool = Tool(
             name="python_repl",
             description="""
             A Python shell. Use this to execute python commands. Input should be a valid python command. 
             If you want to see the output of a value, you should print it out with `print(...)`.
             """,
-            func=PythonREPL().run,
+            func=secure_python_exec,
         )
     except Exception as e:
         logger.error(f"Failed to initialize PythonREPL tool: {e}")
