@@ -40,8 +40,11 @@ from langchain_community.tools import WikipediaQueryRun
 from langchain_community.tools.tavily_search.tool import TavilySearchResults
 from secure_executor import secure_python_exec
 
-# Import the prompt for the supervisor
-from prompt import get_enhanced_supervisor_prompt
+# Import the prompts
+from supervisor_prompt import get_enhanced_supervisor_prompt
+from code_prompt import get_enhanced_code_prompt
+from search_prompt import get_enhanced_search_prompt
+from wiki_prompt import get_enhanced_wiki_prompt
 
 # Configure logging
 logging.basicConfig(
@@ -398,35 +401,7 @@ def get_workflow_app():
                 model=claude,
                 tools=[tavily_search],
                 name="search_agent",
-                prompt="""
-                You are an expert web researcher with access to Tavily Web Search.
-                Your role is to find accurate, up-to-date information and present it with proper citations.
-                
-                SEARCH PROCESS:
-                1. Analyze the query to identify key information needs
-                2. Formulate a precise search query focused on these needs
-                3. Execute search using the tavily_search_results tool
-                4. Analyze results for relevance, credibility, and recency
-                5. Synthesize information into a coherent response
-                6. Always include proper citations
-                
-                CITATION GUIDELINES:
-                - Each factual claim must be linked to its source
-                - Use the <cite index="source-number"> format for citations
-                - Include a sources list at the end of your response
-                - Prioritize recent sources (last 1-2 years when applicable)
-                - Prefer authoritative sources (academic, government, established news outlets)
-                
-                Example properly formatted response with citations:
-                <cite index="1">The global AI market was valued at $120 billion in 2024.</cite> 
-                <cite index="2">The most significant growth has been in healthcare applications, with a 45% increase year-over-year.</cite>
-                Sources:
-                https://example.com/ai-market-report-2024 (Research Institute, May 2024)
-                https://example.com/healthcare-ai-growth (Healthcare Technology Review, April 2024)
-                
-                Provide balanced information from multiple sources when possible, and note any conflicting information.
-                Always strive for accuracy, currency, and comprehensiveness in your research.
-                                             """)
+                prompt=get_enhanced_search_prompt())
             agents.append(search_agent)
             logger.info("Successfully created search agent")
         except Exception as e:
@@ -438,43 +413,7 @@ def get_workflow_app():
                 model=claude,
                 tools=[repl_tool],  # Code agent uses built-in code execution
                 name="code_agent",
-                prompt="""
-                You are an expert code execution agent specialized in computational tasks using Python.
-                IMPORTANT GUIDELINES FOR LARGE CALCULATIONS:
-                
-                1. For factorial calculations with numbers > 50:
-                ```python
-                from mpmath import mp
-                
-                # Set precision based on size (add more digits for larger numbers)
-                mp.dps = 200
-                
-                # Calculate factorial
-                result = mp.factorial(100)
-                print(result)
-                
-                # For massive numbers, also print scientific notation
-                print(f"Scientific notation: {mp.nstr(result, n=3, min_fixed=-1, max_fixed=-1)}")
-                ```
-                
-                2. For very large number operations (exponents, combinations, etc.):
-                - Use mpmath library instead of standard math
-                - Set appropriate precision with mp.dps
-                - Break calculations into smaller steps when possible
-                - Monitor for potential memory issues
-                
-                3. If execution still fails due to memory/resource constraints:
-                - Provide the mathematical formula or approach
-                - Give an approximation using Stirling's formula or other methods
-                - Explain the magnitude of the result
-                
-                4. For programming tasks:
-                - Write clean, well-commented code
-                - Include error handling
-                - Test with sample inputs before executing
-                
-                Always explain your approach before executing code and interpret the results afterward.
-                """)
+                prompt=get_enhanced_code_prompt())
             agents.append(code_agent)
             logger.info("Successfully created code agent")
         except Exception as e:
@@ -486,16 +425,7 @@ def get_workflow_app():
                 model=claude,
                 tools=[wikipedia_tool],
                 name="wiki_agent",
-                prompt="""
-                You are an expert on Wikipedia.
-                Search Wikipedia for the user's query and summarize the results.
-                For Wikipedia searches: Use the wikipedia_query_run tool.
-                EXAMPLE: "I'll search Wikipedia for that information" followed by using wikipedia_query_run(query="your search term")
-                Always use the proper format when calling tools. Do not create invalid tool calls.
-                1. After receiving tool results, analyze them and provide a clear, concise summary.
-                2. Only call a tool once for a query unless you explicitly need more information.
-                3. Always provide an actual response when you have enough information.
-                """)
+                prompt=get_enhanced_wiki_prompt())
             agents.append(wiki_agent)
             logger.info("Successfully created wiki agent")
         except Exception as e:
