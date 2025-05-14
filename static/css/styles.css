@@ -1,3 +1,5 @@
+/* Enhanced styles.css that preserves all existing functionality */
+
 :root {
     --bg-color: #121212;
     --header-bg: #1a1a1a;
@@ -25,6 +27,15 @@
     /* Variable for alternate row background */
     --hr-color: #444444;
     /* Variable for horizontal rule color */
+
+    /* New variables for enhanced features */
+    --secondary-color: #03dac6;
+    --error-color: #cf6679;
+    --execution-result-bg: #1b2634;
+    --execution-result-border: #234c6c;
+    --execution-error-bg: #32232a;
+    --execution-error-border: #683e50;
+    --agent-transition-bg: #2a2c34;
 }
 
 * {
@@ -96,6 +107,19 @@ body {
     word-wrap: break-word;
     overflow-wrap: break-word;
     white-space: pre-wrap;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .user {
@@ -302,10 +326,12 @@ body {
     overflow-y: auto;
     font-size: 16px;
     /* Added font size */
+    transition: box-shadow 0.3s ease;
 }
 
 #chat-input:focus {
     outline: none;
+    box-shadow: 0 0 0 2px var(--primary-color);
 }
 
 #send-btn {
@@ -326,6 +352,16 @@ body {
     justify-content: center;
     background-color: var(--primary-color);
     color: var(--bg-color);
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+#send-btn:hover {
+    transform: scale(1.05);
+    background-color: #c596ff;
+}
+
+#send-btn:active {
+    transform: scale(0.95);
 }
 
 .chat-footer {
@@ -378,6 +414,11 @@ body {
 .citation {
     position: relative;
     border-bottom: 1px dashed var(--primary-color);
+    transition: background-color 0.2s ease;
+}
+
+.citation:hover {
+    background-color: rgba(187, 134, 252, 0.1);
 }
 
 .citation-marker {
@@ -391,6 +432,15 @@ body {
     margin-top: 15px;
     padding-top: 10px;
     border-top: 1px solid var(--border-color);
+    background-color: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.sources-section h4 {
+    color: var(--primary-color);
+    margin-bottom: 8px;
+    font-size: 16px;
 }
 
 .sources-list {
@@ -401,6 +451,12 @@ body {
 
 .source-item {
     margin-bottom: 5px;
+    padding: 4px 0;
+    transition: background-color 0.2s ease;
+}
+
+.source-item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
 }
 
 .source-item a {
@@ -412,13 +468,53 @@ body {
     text-decoration: underline;
 }
 
-/* Code execution result styling */
+/* Enhanced code execution result styling */
 .code-execution-result {
-    background-color: #1e1e1e;
+    background-color: var(--execution-result-bg, #1b2634);
     border-left: 3px solid var(--primary-color);
-    padding: 10px;
-    margin: 10px 0;
-    border-radius: 5px;
+    padding: 12px;
+    margin: 12px 0;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    overflow-x: auto;
+    border: 1px solid var(--execution-result-border, #234c6c);
+}
+
+/* Enhanced code execution error styling */
+.code-execution-error {
+    background-color: var(--execution-error-bg, #32232a);
+    border-left: 3px solid var(--error-color, #cf6679);
+    padding: 12px;
+    margin: 12px 0;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    overflow-x: auto;
+    border: 1px solid var(--execution-error-border, #683e50);
+}
+
+/* Agent transition styling */
+.agent-transition {
+    background-color: var(--agent-transition-bg, #2a2c34);
+    color: var(--secondary-color, #03dac6);
+    padding: 6px 12px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    margin: 8px 0;
+    align-self: center;
+    border-left: 3px solid var(--secondary-color, #03dac6);
+    max-width: 90%;
+    text-align: center;
+}
+
+.tool-indicator {
+    display: inline-block;
+    padding: 2px 6px;
+    margin-right: 6px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 500;
+    background-color: rgba(187, 134, 252, 0.2);
+    color: var(--primary-color);
 }
 
 /* Scrollbar styles */
@@ -433,6 +529,10 @@ body {
 .chat-messages::-webkit-scrollbar-thumb {
     background-color: var(--border-color);
     border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background-color: #444;
 }
 
 /* Force all links to use the light blue color with !important */
@@ -472,4 +572,22 @@ a:active {
 /* Force style on any dynamically created elements */
 body * a {
     color: var(--link-color) !important;
+}
+
+/* Responsive design */
+@media (max-width: 820px) {
+    .chat-container {
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        border-radius: 0;
+    }
+
+    .message {
+        max-width: 90%;
+    }
+
+    .logo-container {
+        width: 280px;
+    }
 }

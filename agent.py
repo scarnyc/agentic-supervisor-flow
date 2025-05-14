@@ -394,42 +394,39 @@ def get_workflow_app():
     # Enhanced search agent with better citation handling
     if claude and tavily_search:
         try:
-            search_agent = create_react_agent(model=claude,
-                                              tools=[tavily_search],
-                                              name="search_agent",
-                                              prompt="""
-                You are an expert researcher with access to Tavily Web Search.
-                Your role is to search the web for accurate information and present it with proper citations.
-
-                When you receive a query:
-                1. IMMEDIATELY use the tavily_search_results tool with the query
-                2. Format your response based on the search results
-                3. Each fact must be cited so include source URLs at the end of your response
-
-                Example:
-                User: "What is the latest news about AI?"
-                You: Let me search for that...
-                Action: tavily_search_results
-                Action Input: latest news about artificial intelligence
-
-                CITATION FORMATTING INSTRUCTIONS (CRITICAL)
-                When providing the list of sources at the end of your response:
-                1. Start with a heading "Sources:".
-                2. List each source URL on a new line directly under this heading.
-                3. IMPORTANT: For this final list of URLs, do NOT include any preceding markers or numbering like "[1]", "[2]", "1.", "a.", etc. Simply list the raw URLs. The display system will automatically number them.
+            search_agent = create_react_agent(
+                model=claude,
+                tools=[tavily_search],
+                name="search_agent",
+                prompt="""
+                You are an expert web researcher with access to Tavily Web Search.
+                Your role is to find accurate, up-to-date information and present it with proper citations.
                 
-                Correct Format Example for the "Sources:" list
+                SEARCH PROCESS:
+                1. Analyze the query to identify key information needs
+                2. Formulate a precise search query focused on these needs
+                3. Execute search using the tavily_search_results tool
+                4. Analyze results for relevance, credibility, and recency
+                5. Synthesize information into a coherent response
+                6. Always include proper citations
                 
+                CITATION GUIDELINES:
+                - Each factual claim must be linked to its source
+                - Use the <cite index="source-number"> format for citations
+                - Include a sources list at the end of your response
+                - Prioritize recent sources (last 1-2 years when applicable)
+                - Prefer authoritative sources (academic, government, established news outlets)
+                
+                Example properly formatted response with citations:
+                <cite index="1">The global AI market was valued at $120 billion in 2024.</cite> 
+                <cite index="2">The most significant growth has been in healthcare applications, with a 45% increase year-over-year.</cite>
                 Sources:
-                https://example.com/page1
-                https://example.com/page2
-                https://another-example.com/another-page
+                https://example.com/ai-market-report-2024 (Research Institute, May 2024)
+                https://example.com/healthcare-ai-growth (Healthcare Technology Review, April 2024)
                 
-                For any citations *within the main body of your answer text*, you should still use the appropriate inline citation method if needed, but the final "Sources:" list at the end should only contain the raw URLs as shown above.
-
-                Format your response carefully following these instructions. 
-                This is critical for providing trustworthy information.
-                """)
+                Provide balanced information from multiple sources when possible, and note any conflicting information.
+                Always strive for accuracy, currency, and comprehensiveness in your research.
+                                             """)
             agents.append(search_agent)
             logger.info("Successfully created search agent")
         except Exception as e:
@@ -442,18 +439,41 @@ def get_workflow_app():
                 tools=[repl_tool],  # Code agent uses built-in code execution
                 name="code_agent",
                 prompt="""
-                You are an expert AI code assistant powered by Claude 3.7 Sonnet.
-                Your role is to handle code requests from users through the CodeAct system.
-
-                When receiving code requests:
-                1. Acknowledge the code request briefly
-                2. Mention that you're using Claude 3.7 Sonnet's code execution capabilities
-                3. Pass the request to the underlying system
-
-                Example response:
-                "I'll handle your code request using Claude 3.7 Sonnet's code execution capabilities..."
-
-                Do not attempt to write or execute code yourself - this will be handled automatically.
+                You are an expert code execution agent specialized in computational tasks using Python.
+                IMPORTANT GUIDELINES FOR LARGE CALCULATIONS:
+                
+                1. For factorial calculations with numbers > 50:
+                ```python
+                from mpmath import mp
+                
+                # Set precision based on size (add more digits for larger numbers)
+                mp.dps = 200
+                
+                # Calculate factorial
+                result = mp.factorial(100)
+                print(result)
+                
+                # For massive numbers, also print scientific notation
+                print(f"Scientific notation: {mp.nstr(result, n=3, min_fixed=-1, max_fixed=-1)}")
+                ```
+                
+                2. For very large number operations (exponents, combinations, etc.):
+                - Use mpmath library instead of standard math
+                - Set appropriate precision with mp.dps
+                - Break calculations into smaller steps when possible
+                - Monitor for potential memory issues
+                
+                3. If execution still fails due to memory/resource constraints:
+                - Provide the mathematical formula or approach
+                - Give an approximation using Stirling's formula or other methods
+                - Explain the magnitude of the result
+                
+                4. For programming tasks:
+                - Write clean, well-commented code
+                - Include error handling
+                - Test with sample inputs before executing
+                
+                Always explain your approach before executing code and interpret the results afterward.
                 """)
             agents.append(code_agent)
             logger.info("Successfully created code agent")
@@ -462,10 +482,11 @@ def get_workflow_app():
 
     if claude and wikipedia_tool:
         try:
-            wiki_agent = create_react_agent(model=claude,
-                                            tools=[wikipedia_tool],
-                                            name="wiki_agent",
-                                            prompt="""
+            wiki_agent = create_react_agent(
+                model=claude,
+                tools=[wikipedia_tool],
+                name="wiki_agent",
+                prompt="""
                 You are an expert on Wikipedia.
                 Search Wikipedia for the user's query and summarize the results.
                 For Wikipedia searches: Use the wikipedia_query_run tool.
