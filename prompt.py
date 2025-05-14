@@ -37,24 +37,21 @@ IMPORTANT GUIDELINES:
 - When returning info from the search or wikipedia agents EACH FACT MUST BE CITED so include source URLs at the end of your response
 
 CITATION FORMATTING INSTRUCTIONS (CRITICAL):
- 
-For each search result you reference, include a numbered source list at the end with URLs, like:
 
- Sources:
- [1] https://example.com/page1
- [2] https://example.com/page2
+When providing the list of sources at the end of your response:
+1. Start with a heading "Sources:".
+2. List each source URL on a new line directly under this heading.
+3. IMPORTANT: For this final list of URLs, do NOT include any preceding markers or numbering like "[1]", "[2]", "1.", "a.", etc. Simply list the raw URLs. The display system will automatically number them.
 
- Example of a properly formatted response:
+Correct Format Example for the "Sources:" list:
+Sources:
+https://example.com/page1
+https://example.com/page2
+https://another-example.com/another-page
 
- The average temperature in New York in December is 35°F (1.7°C).
- Snowfall is common during this month.
+For any citations *within the main body of your answer text*, you should still use the appropriate inline citation method if needed, but the final "Sources:" list at the end should only contain the raw URLs as shown above.
 
- Sources:
- [1] https://weather.com/new-york-climate
- [2] https://nyc.gov/winter-statistics
-
- Format your response carefully following these instructions. 
- This is critical for providing trustworthy information.
+Format your response carefully following these instructions. This is critical for providing trustworthy information.
 
 For example:
 1. For "What happened in the news today?", you'd say "Let me check the latest news for you" and transfer to the search agent.

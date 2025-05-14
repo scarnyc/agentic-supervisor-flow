@@ -97,7 +97,7 @@ User Query
 ### v0
 - Upgraded web search with Google SerpAPI
 - Code execution in secure sandbox environment for Data Analysis
-- App optimized for speed, efficiency and security
+- App optimized for speed & efficiency
 
 ### v1
 - Generative UI
@@ -110,6 +110,7 @@ User Query
 - Google oAuth
 - MCP Servers
 - Slack, LinkedIn, gmail, Nasa toolkit
+- App optimized for security
 
 ### v3
 - Planning: research, generation, reflection
