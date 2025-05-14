@@ -7,8 +7,24 @@
     --primary-color: #bb86fc;
     --user-message-bg: #333333;
     --assistant-message-bg: #1a1a1a;
-    --link-color: #8cc0ff;         /* New variable for link color */
-    --link-hover-color: #aad4ff;   /* New variable for link hover color */
+    --link-color: #8cc0ff;
+    /* Variable for link color */
+    --link-hover-color: #aad4ff;
+    /* Variable for link hover color */
+    --code-bg: #252525;
+    /* Variable for code background */
+    --blockquote-border: #555555;
+    /* Variable for blockquote border */
+    --heading-color: #bb86fc;
+    /* Variable for heading color */
+    --table-border: #444444;
+    /* Variable for table borders */
+    --table-header-bg: #2a2a2a;
+    /* Variable for table header background */
+    --table-alt-row: #222222;
+    /* Variable for alternate row background */
+    --hr-color: #444444;
+    /* Variable for horizontal rule color */
 }
 
 * {
@@ -29,8 +45,10 @@ body {
 
 .chat-container {
     width: 100%;
-    max-width: 800px; /* Increased from 400px */
-    height: 700px; /* Increased from 600px */
+    max-width: 800px;
+    /* Increased from 400px */
+    height: 700px;
+    /* Increased from 600px */
     background-color: var(--bg-color);
     border-radius: 12px;
     overflow: hidden;
@@ -43,7 +61,8 @@ body {
     background-color: var(--header-bg);
     padding: 15px 20px;
     display: flex;
-    justify-content: center; /* Changed from space-between */
+    justify-content: center;
+    /* Changed from space-between */
     align-items: center;
     border-bottom: 1px solid var(--border-color);
     height: 90px;
@@ -58,11 +77,6 @@ body {
     width: 100%;
     height: 100%;
     object-fit: contain;
-}
-
-.logo {
-    width: 100%;
-    height: 100%;
 }
 
 .chat-messages {
@@ -93,16 +107,167 @@ body {
     border-bottom-left-radius: 4px;
 }
 
+/* Markdown styling for message content */
+.message-content {
+    color: var(--text-color);
+}
+
+/* Paragraph spacing */
 .message-content p {
-    margin-bottom: 8px;
+    margin-bottom: 0.8em;
 }
 
 .message-content p:last-child {
     margin-bottom: 0;
 }
 
+/* Headings */
+.message-content h1,
+.message-content h2,
+.message-content h3,
+.message-content h4,
+.message-content h5,
+.message-content h6 {
+    color: var(--heading-color);
+    font-weight: 600;
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+    line-height: 1.3;
+}
+
+.message-content h1 {
+    font-size: 1.6em;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.3em;
+}
+
+.message-content h2 {
+    font-size: 1.4em;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.3em;
+}
+
+.message-content h3 {
+    font-size: 1.2em;
+}
+
+.message-content h4 {
+    font-size: 1.1em;
+}
+
+.message-content h5,
+.message-content h6 {
+    font-size: 1em;
+}
+
+/* Lists */
+.message-content ul,
+.message-content ol {
+    margin-top: 0.5em;
+    margin-bottom: 1em;
+    padding-left: 2em;
+}
+
+.message-content li {
+    margin-bottom: 0.3em;
+}
+
+.message-content li>ul,
+.message-content li>ol {
+    margin-top: 0.3em;
+    margin-bottom: 0.3em;
+}
+
+/* Blockquotes */
+.message-content blockquote {
+    border-left: 3px solid var(--blockquote-border);
+    padding-left: 1em;
+    margin: 1em 0;
+    color: #bbb;
+}
+
+/* Code blocks */
+.message-content pre {
+    background: var(--code-bg);
+    border-radius: 5px;
+    padding: 12px;
+    overflow-x: auto;
+    margin: 1em 0;
+    border: 1px solid var(--border-color);
+}
+
+.message-content code {
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+}
+
+/* Inline code */
+.message-content :not(pre)>code {
+    background: var(--code-bg);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 90%;
+}
+
+/* Tables */
+.message-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+}
+
+.message-content th {
+    background-color: var(--table-header-bg);
+    padding: 8px;
+    text-align: left;
+    border: 1px solid var(--table-border);
+}
+
+.message-content td {
+    padding: 8px;
+    border: 1px solid var(--table-border);
+}
+
+.message-content tr:nth-child(even) {
+    background-color: var(--table-alt-row);
+}
+
+/* Horizontal rule */
+.message-content hr {
+    height: 1px;
+    background-color: var(--hr-color);
+    border: none;
+    margin: 1.5em 0;
+}
+
+/* Images */
+.message-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin: 1em 0;
+}
+
+/* Links */
+.message-content a {
+    color: var(--link-color);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.message-content a:hover {
+    color: var(--link-hover-color);
+    text-decoration: underline;
+}
+
+/* Task lists */
+.message-content input[type="checkbox"] {
+    margin-right: 0.5em;
+}
+
 .chat-input-container {
-    padding: 20px; /* Increased from 15px */
+    padding: 20px;
+    /* Increased from 15px */
     display: flex;
     align-items: center;
     border-top: 1px solid var(--border-color);
@@ -114,13 +279,17 @@ body {
     background-color: var(--input-bg);
     border: none;
     border-radius: 20px;
-    padding: 15px 20px; /* Increased from 12px 15px */
+    padding: 15px 20px;
+    /* Increased from 12px 15px */
     color: var(--text-color);
     resize: none;
-    min-height: 50px; /* Increased minimum height */
-    max-height: 150px; /* Increased from 100px */
+    min-height: 50px;
+    /* Increased minimum height */
+    max-height: 150px;
+    /* Increased from 100px */
     overflow-y: auto;
-    font-size: 16px; /* Added font size */
+    font-size: 16px;
+    /* Added font size */
 }
 
 #chat-input:focus {
@@ -132,10 +301,13 @@ body {
     border: none;
     color: var(--text-color);
     font-size: 20px;
-    margin-left: 15px; /* Increased from 10px */
+    margin-left: 15px;
+    /* Increased from 10px */
     cursor: pointer;
-    width: 50px; /* Increased from 40px */
-    height: 50px; /* Increased from 40px */
+    width: 50px;
+    /* Increased from 40px */
+    height: 50px;
+    /* Increased from 40px */
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -178,41 +350,16 @@ body {
 }
 
 @keyframes bounce {
-    0%, 80%, 100% { transform: translateY(0); }
-    40% { transform: translateY(-8px); }
-}
 
-/* User bubble style - white text */
-.user .message-content {
-    color: #fff;
-}
+    0%,
+    80%,
+    100% {
+        transform: translateY(0);
+    }
 
-/* Assistant bubble style */
-.assistant .message-content {
-    color: #fff;
-}
-
-/* Code block styling */
-pre {
-    background: #252525;
-    border-radius: 5px;
-    padding: 12px;
-    overflow-x: auto;
-    margin: 10px 0;
-    border: 1px solid #333;
-}
-
-code {
-    font-family: 'Courier New', monospace;
-    font-size: 14px;
-}
-
-/* Inline code styling */
-p code, li code, .message-content code:not(pre code) {
-    background: #252525;
-    padding: 2px 4px;
-    border-radius: 3px;
-    font-size: 90%;
+    40% {
+        transform: translateY(-8px);
+    }
 }
 
 /* Citation styling */
@@ -277,13 +424,17 @@ p code, li code, .message-content code:not(pre code) {
 }
 
 /* Force all links to use the light blue color with !important */
-a, a:link, a:visited {
-    color: #8cc0ff !important;
+a,
+a:link,
+a:visited {
+    color: var(--link-color) !important;
     text-decoration: none !important;
 }
 
-a:hover, a:focus, a:active {
-    color: #aad4ff !important;
+a:hover,
+a:focus,
+a:active {
+    color: var(--link-hover-color) !important;
     text-decoration: underline !important;
 }
 
@@ -291,22 +442,22 @@ a:hover, a:focus, a:active {
 .chat-messages .message .message-content a,
 .chat-container .chat-messages .message.assistant .message-content a,
 .chat-container .chat-messages .message.user .message-content a {
-    color: #8cc0ff !important;
+    color: var(--link-color) !important;
     font-weight: 500 !important;
 }
 
 /* Target links generated by the formatMessage function in app.js */
 [href^="http"],
 [href^="https"] {
-    color: #8cc0ff !important;
+    color: var(--link-color) !important;
 }
 
 /* Extra specificity for source links */
 .sources-section .sources-list .source-item a {
-    color: #8cc0ff !important;
+    color: var(--link-color) !important;
 }
 
 /* Force style on any dynamically created elements */
 body * a {
-    color: #8cc0ff !important;
+    color: var(--link-color) !important;
 }

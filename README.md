@@ -96,7 +96,8 @@ User Query
 
 ### v0
 - Upgraded web search with Google SerpAPI
-- Code execution in secure environment for Data Analysis
+- Code execution in secure sandbox environment for Data Analysis
+- App optimized for speed, efficiency and security
 
 ### v1
 - Human in the loop (stop and ask for input)
@@ -119,4 +120,5 @@ User Query
 ### V4
 - Computer Use, RAG
 - User-input OpenAI / Gemini API Key
+- Security with Cloudflare
 ```
