@@ -93,6 +93,11 @@ body {
     padding: 12px 16px;
     border-radius: 18px;
     line-height: 1.4;
+    /* Added for text wrapping */
+    overflow-wrap: break-word;
+    word-wrap: break-word; /* Fallback for older browsers */
+    word-break: break-all; /* Can be aggressive, use with caution or prefer break-word */
+
 }
 
 .user {
@@ -110,6 +115,10 @@ body {
 /* Markdown styling for message content */
 .message-content {
     color: var(--text-color);
+    /* Ensure text wrapping within the content div as well */
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-all; /* Apply here too if needed */
 }
 
 /* Paragraph spacing */
@@ -195,17 +204,23 @@ body {
     background: var(--code-bg);
     border-radius: 5px;
     padding: 12px;
-    overflow-x: auto;
+    overflow-x: auto; /* Allow horizontal scroll for wide code */
     margin: 1em 0;
     border: 1px solid var(--border-color);
+    /* Ensure preformatted text also wraps if it's too long and not code */
+    white-space: pre-wrap; /* Wraps text but preserves spaces and line breaks */
+    word-wrap: break-word;
 }
 
 .message-content code {
     font-family: 'Courier New', monospace;
     font-size: 14px;
+     /* For inline code, allow breaking */
+    word-break: break-all; /* More aggressive for inline code */
+    overflow-wrap: break-word;
 }
 
-/* Inline code */
+/* Inline code specific styling */
 .message-content :not(pre)>code {
     background: var(--code-bg);
     padding: 2px 4px;
@@ -218,18 +233,21 @@ body {
     width: 100%;
     border-collapse: collapse;
     margin: 1em 0;
+    table-layout: fixed; /* Helps with column widths and wrapping */
+}
+
+.message-content th,
+.message-content td {
+    padding: 8px;
+    border: 1px solid var(--table-border);
+    /* Ensure table cell content can wrap */
+    overflow-wrap: break-word;
+    word-wrap: break-word;
 }
 
 .message-content th {
     background-color: var(--table-header-bg);
-    padding: 8px;
     text-align: left;
-    border: 1px solid var(--table-border);
-}
-
-.message-content td {
-    padding: 8px;
-    border: 1px solid var(--table-border);
 }
 
 .message-content tr:nth-child(even) {
@@ -257,6 +275,10 @@ body {
     color: var(--link-color);
     text-decoration: none;
     transition: color 0.2s;
+    /* Allow links to break and wrap */
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-all; /* If necessary for very long unbreakable URLs */
 }
 
 .message-content a:hover {
@@ -411,7 +433,21 @@ body {
     padding: 10px;
     margin: 10px 0;
     border-radius: 5px;
+    overflow-wrap: break-word; /* Ensure wrapping */
+    word-wrap: break-word;
 }
+
+.code-execution-error { /* Added for error styling */
+    background-color: #2a1a1a; /* Dark red background */
+    border-left: 3px solid #fc8686; /* Lighter red border */
+    color: #ffdada; /* Light red text */
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 5px;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+}
+
 
 /* Scrollbar styles */
 .chat-messages::-webkit-scrollbar {
