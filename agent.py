@@ -40,7 +40,7 @@ from langchain_community.tools import WikipediaQueryRun
 from langchain_community.tools.tavily_search.tool import TavilySearchResults
 
 # Import custom Agent tools 
-import agent_tools.math_tools import stirling_tool
+from agent_tools.math_tools import stirling_tool
 from agent_tools.secure_executor import secure_python_exec
 
 # Import the prompts
