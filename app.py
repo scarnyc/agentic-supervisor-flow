@@ -287,17 +287,19 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
                 # Start a partial response
                 partial_response = ""
+                agent_response = None  # Store the agent response
 
                 try:
                     # Stream response from workflow
                     config = {"configurable": {"thread_id": session_id}}
 
                     # Add execution metadata for code execution
-                    if "calculate" in user_message.lower(
-                    ) or "factorial" in user_message.lower():
+                    if "calculate" in user_message.lower() or "factorial" in user_message.lower():
                         config["configurable"]["execution_mode"] = "safe"
 
                     # Stream the events in the graph
+                    last_message_content = None  # Keep track of the last substantial message
+
                     for event in workflow_app.stream(
                         {"messages": [("user", user_message)]}, config):
                         # Process each event
@@ -315,14 +317,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
                                     # Check for code execution errors and provide more helpful responses
                                     if "Code execution failed" in new_content:
-                                        # Parse the error
-                                        error_content = parse_code_execution_error(
-                                            new_content)
-                                        # If memory error in factorial, provide direct answer
-                                        if "failed to reserve page summary memory" in new_content and "factorial" in user_message.lower(
-                                        ):
-                                            error_content += "\n\nThe factorial of 100 is approximately 9.33 × 10^157 (a number with 158 digits). This calculation requires special handling for such large numbers."
-                                        new_content = error_content
+                                        # Parse the error (without special case handling)
+                                        new_content = parse_code_execution_error(new_content)
 
                                     # Process citations in the new content
                                     new_content = process_citations({
@@ -334,6 +330,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     ) and "messages" in new_content:
                                         new_content = new_content["messages"][
                                             0][1]
+
+                                    # Keep track of substantial responses (ignore transfer messages)
+                                    if (not "Transferring" in new_content and 
+                                        not "Using Web Search Tool" in new_content and
+                                        not "Using Wikipedia Tool" in new_content and
+                                        not "Using Code Execution Tool" in new_content and
+                                        not "Thinking" in new_content and
+                                        len(new_content.strip()) > 10):
+                                        last_message_content = new_content
 
                                     # If we have new content, send it as a partial update
                                     if new_content != partial_response:
@@ -362,18 +367,25 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                         }
                                     })
 
+                    # Ensure we're using the most substantial response (not just "Sources:")
+                    final_response = partial_response
+                    if (last_message_content and 
+                        (partial_response.strip().startswith("Sources:") or 
+                         len(partial_response.strip()) < len(last_message_content.strip()))):
+                        final_response = last_message_content
+
                     # Add final assistant message to session
-                    if partial_response:
+                    if final_response:
                         sessions[session_id]["messages"].append(
                             ChatMessage(role="assistant",
-                                        content=partial_response))
+                                      content=final_response))
 
                         # Send completion message
                         await websocket.send_json({
                             "type": "message_complete",
                             "message": {
                                 "role": "assistant",
-                                "content": partial_response
+                                "content": final_response
                             }
                         })
 

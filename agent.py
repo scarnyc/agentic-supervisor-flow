@@ -190,7 +190,8 @@ def format_citations(content: str) -> str:
 
 def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Post-process the response from the search agent to ensure proper citation formatting.
+    Post-process the response from the search agent to ensure proper citation formatting 
+    and preserve response content.
 
     Args:
         response: The response dictionary from the search agent
@@ -240,6 +241,27 @@ def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
 
                 for pattern, replacement in agent_transfer_patterns:
                     content = re.sub(pattern, replacement, content)
+
+                # Ensure we're not losing substantive content when the supervisor
+                # only returns the sources
+                if content.strip().startswith("Sources:") and len(content.strip().split("\n")) <= 4:
+                    for prev_message in response["messages"]:
+                        # Look for a previous message with substantial content
+                        prev_content = prev_message.content if isinstance(
+                            prev_message, AIMessage) else (prev_message[1] if isinstance(prev_message, tuple) and len(prev_message) > 1 else "")
+
+                        # If we find a substantive previous message that isn't just a source citation
+                        if (prev_content and 
+                            len(prev_content.strip()) > 100 and 
+                            not prev_content.strip().startswith("Sources:") and
+                            not "Using Web Search Tool" in prev_content and
+                            not "Using Wikipedia Tool" in prev_content):
+
+                            # Append sources to the substantive content
+                            if "Sources:" not in prev_content:
+                                prev_content += "\n\n" + content
+                                content = prev_content
+                            break
 
                 # Recreate the message with the updated content
                 if isinstance(message, AIMessage):
