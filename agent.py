@@ -40,7 +40,7 @@ from langchain_community.tools import WikipediaQueryRun
 from langchain_community.tools.tavily_search.tool import TavilySearchResults
 
 # Import custom Agent tools 
-import agent_tools.math_tools import stirling_approximation_factorial
+import agent_tools.math_tools import stirling_tool
 from agent_tools.secure_executor import secure_python_exec
 
 # Import the prompts
@@ -412,7 +412,7 @@ def get_workflow_app():
         try:
             code_agent = create_react_agent(
                 model=claude,
-                tools=[repl_tool],  # Code agent uses built-in code execution
+                tools=[repl_tool, stirling_tool],  # Code agent uses built-in code execution
                 name="code_agent",
                 prompt=get_code_prompt())
             agents.append(code_agent)
