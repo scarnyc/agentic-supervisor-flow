@@ -251,8 +251,21 @@ def secure_python_exec(code: str) -> str:
                 return "Code executed successfully, but produced no output."
             return output
         else:
-            # Format error in a helpful way
-            error_message = f"Code execution failed (took {result['execution_time']:.2f}s):\n\n{result['stderr']}"
+            stderr_output = result['stderr']
+            if "failed to reserve page summary memory" in stderr_output or "fatal error" in stderr_output:
+                # More specific error for the LLM
+                error_message = (
+                    f"Sandbox Execution Environment Error (took {result['execution_time']:.2f}s): "
+                    "The underlying execution environment encountered a critical memory allocation issue "
+                    "and could not complete the task. This is likely due to system-level resource limits."
+                )
+            elif "Execution timed out" in stderr_output:
+                 error_message = (
+                    f"Execution Timed Out (took {result['execution_time']:.2f}s): "
+                    "The calculation took longer than the allowed time limit."
+                )
+            else:
+                error_message = f"Code execution failed (took {result['execution_time']:.2f}s):\n\n{stderr_output}"
             return error_message
     except Exception as e:
         logger.error(f"Error in secure_python_exec: {e}")

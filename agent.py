@@ -38,7 +38,10 @@ from langchain_core.tools import Tool
 from langchain_community.utilities import WikipediaAPIWrapper
 from langchain_community.tools import WikipediaQueryRun
 from langchain_community.tools.tavily_search.tool import TavilySearchResults
-from secure_executor import secure_python_exec
+
+# Import custom Agent tools 
+import agent_tools.math_tools import stirling_approximation_factorial
+from agent_tools.secure_executor import secure_python_exec
 
 # Import the prompts
 from prompts import (get_supervisor_prompt, get_code_prompt, 
@@ -399,7 +402,7 @@ def get_workflow_app():
                 model=claude,
                 tools=[tavily_search],
                 name="search_agent",
-                prompt=get_enhanced_search_prompt())
+                prompt=get_search_prompt())
             agents.append(search_agent)
             logger.info("Successfully created search agent")
         except Exception as e:
@@ -411,7 +414,7 @@ def get_workflow_app():
                 model=claude,
                 tools=[repl_tool],  # Code agent uses built-in code execution
                 name="code_agent",
-                prompt=get_enhanced_code_prompt())
+                prompt=get_code_prompt())
             agents.append(code_agent)
             logger.info("Successfully created code agent")
         except Exception as e:
@@ -423,7 +426,7 @@ def get_workflow_app():
                 model=claude,
                 tools=[wikipedia_tool],
                 name="wiki_agent",
-                prompt=get_enhanced_wiki_prompt())
+                prompt=get_wiki_prompt())
             agents.append(wiki_agent)
             logger.info("Successfully created wiki agent")
         except Exception as e:
@@ -439,7 +442,7 @@ def get_workflow_app():
     try:
         workflow = create_supervisor(agents,
                                      model=claude,
-                                     prompt=get_enhanced_supervisor_prompt(),
+                                     prompt=get_supervisor_prompt(),
                                      output_mode="full_history",
                                      parallel_tool_calls=False)
         logger.info("Successfully created supervisor workflow")
