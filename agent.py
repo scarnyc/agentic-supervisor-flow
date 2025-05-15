@@ -41,10 +41,8 @@ from langchain_community.tools.tavily_search.tool import TavilySearchResults
 from secure_executor import secure_python_exec
 
 # Import the prompts
-from supervisor_prompt import get_enhanced_supervisor_prompt
-from code_prompt import get_enhanced_code_prompt
-from search_prompt import get_enhanced_search_prompt
-from wiki_prompt import get_enhanced_wiki_prompt
+from prompts import (get_supervisor_prompt, get_code_prompt, 
+    get_search_prompt, get_wiki_prompt)
 
 # Configure logging
 logging.basicConfig(
