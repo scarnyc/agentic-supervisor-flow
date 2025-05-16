@@ -1,3 +1,6 @@
+"""
+Prompts for specialized agents and the supervisor agent.
+"""
 def get_supervisor_prompt():
     """
     Returns an enhanced prompt for the supervisor agent that coordinates between specialized agents.
@@ -80,9 +83,9 @@ def get_search_prompt():
     - Prioritize recent sources (last 1-2 years when applicable)
     - Prefer authoritative sources (academic, government, established news outlets)
 
-    Example properly formatted response with citations:
-    <cite index="1">The global AI market was valued at $120 billion in 2024.</cite> 
-    <cite index="2">The most significant growth has been in healthcare applications, with a 45% increase year-over-year.</cite>
+    FORMATTING EXAMPLE FOR CITATIONS:
+    <cite index="1">The factual claim goes here.</cite> 
+    <cite index="2">Another factual claim goes here.</cite>
 
     Sources:
     https://example.com/ai-market-report-2024 (Research Institute, May 2024)

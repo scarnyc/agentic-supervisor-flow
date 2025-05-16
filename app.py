@@ -10,7 +10,7 @@ import uuid
 import json
 import traceback
 import logging
-from agent import get_workflow_app, process_citations
+from agent import get_workflow_app
 
 # Configure logging
 logging.basicConfig(
@@ -18,6 +18,19 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 logger = logging.getLogger(__name__)
+
+
+# Add a simple monitoring endpoint to track performance
+@app.get("/api/metrics", response_model=dict)
+async def get_metrics():
+    """Return system metrics for monitoring."""
+    metrics = {
+        "active_connections": len(active_connections),
+        "active_sessions": len(sessions),
+        "rate_limit_encounters": getattr(app.state, "rate_limit_count", 0),
+        "average_token_usage": getattr(app.state, "avg_token_usage", 0),
+    }
+    return metrics
 
 
 class AgentState(TypedDict):
@@ -234,6 +247,7 @@ def extract_content_from_result(result: Any) -> str:
 
 
 # Enhanced error handling for WebSocket in app.py
+# In app.py, find the existing websocket_endpoint function and add these improvements
 @app.websocket("/api/chat/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     await websocket.accept()
@@ -285,9 +299,16 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     }
                 })
 
-                # Start a partial response
+                # Start tracking partial response and token usage
                 partial_response = ""
-                agent_response = None  # Store the agent response
+                last_message_content = None
+
+                # Add a token budget for the entire streaming operation
+                total_tokens_sent = 0
+                MAX_TOKENS_PER_SESSION = 5000  # Reasonable upper limit
+
+                # Flag to track if we've hit the token limit
+                token_limit_hit = False
 
                 try:
                     # Stream response from workflow
@@ -298,40 +319,34 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         config["configurable"]["execution_mode"] = "safe"
 
                     # Stream the events in the graph
-                    last_message_content = None  # Keep track of the last substantial message
-
                     for event in workflow_app.stream(
                         {"messages": [("user", user_message)]}, config):
+
                         # Process each event
                         for value in event.values():
-                            if isinstance(
-                                    value, dict
-                            ) and "messages" in value and value["messages"]:
+                            if isinstance(value, dict) and "messages" in value and value["messages"]:
                                 try:
                                     # Get the last message
                                     last_message = value["messages"][-1]
 
                                     # Extract content with error handling
-                                    new_content = extract_message_content(
-                                        last_message)
+                                    new_content = extract_message_content(last_message)
 
-                                    # Check for code execution errors and provide more helpful responses
+                                    # Check for code execution errors
                                     if "Code execution failed" in new_content:
-                                        # Parse the error (without special case handling)
+                                        from agent_tools.code_tools import parse_code_execution_error
                                         new_content = parse_code_execution_error(new_content)
 
                                     # Process citations in the new content
-                                    new_content = process_citations({
-                                        "messages":
-                                        [("assistant", new_content)]
+                                    from agent_tools.search_tools import process_citations_for_response
+                                    new_content_processed = process_citations_for_response({
+                                        "messages": [("assistant", new_content)]
                                     })
-                                    if isinstance(
-                                            new_content, dict
-                                    ) and "messages" in new_content:
-                                        new_content = new_content["messages"][
-                                            0][1]
 
-                                    # Keep track of substantial responses (ignore transfer messages)
+                                    if isinstance(new_content_processed, dict) and "messages" in new_content_processed:
+                                        new_content = new_content_processed["messages"][0][1]
+
+                                    # Keep track of substantial responses
                                     if (not "Transferring" in new_content and 
                                         not "Using Web Search Tool" in new_content and
                                         not "Using Wikipedia Tool" in new_content and
@@ -339,6 +354,24 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                         not "Thinking" in new_content and
                                         len(new_content.strip()) > 10):
                                         last_message_content = new_content
+
+                                    # Calculate approximate token count (4 chars ~ 1 token)
+                                    new_tokens = len(new_content) // 4
+
+                                    # Check if we're about to exceed our token budget
+                                    if total_tokens_sent + new_tokens > MAX_TOKENS_PER_SESSION:
+                                        if not token_limit_hit:
+                                            # Send notification that we're truncating
+                                            await websocket.send_json({
+                                                "type": "info",
+                                                "message": {
+                                                    "role": "system",
+                                                    "content": "Response truncated due to size limitations."
+                                                }
+                                            })
+                                            token_limit_hit = True
+                                        # Don't send more content
+                                        continue
 
                                     # If we have new content, send it as a partial update
                                     if new_content != partial_response:
@@ -350,20 +383,18 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                             }
                                         })
                                         partial_response = new_content
+                                        total_tokens_sent += new_tokens
 
                                 except Exception as e:
-                                    logger.error(
-                                        f"Error processing message: {e}")
+                                    logger.error(f"Error processing message: {e}")
                                     traceback.print_exc()
 
                                     # Continue processing despite errors
                                     await websocket.send_json({
                                         "type": "error",
                                         "message": {
-                                            "role":
-                                            "system",
-                                            "content":
-                                            "An error occurred while processing part of the response."
+                                            "role": "system",
+                                            "content": "An error occurred while processing part of the response."
                                         }
                                     })
 
@@ -377,8 +408,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     # Add final assistant message to session
                     if final_response:
                         sessions[session_id]["messages"].append(
-                            ChatMessage(role="assistant",
-                                      content=final_response))
+                            ChatMessage(role="assistant", content=final_response))
 
                         # Send completion message
                         await websocket.send_json({
@@ -393,8 +423,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     logger.error(f"Error in workflow streaming: {e}")
                     traceback.print_exc()
 
-                    error_message = generate_friendly_error_message(
-                        e, user_message)
+                    error_message = generate_friendly_error_message(e, user_message)
 
                     # Send error message to client
                     await websocket.send_json({
@@ -419,8 +448,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     })
 
             except WebSocketDisconnect:
-                logger.info(
-                    f"WebSocket disconnected for session: {session_id}")
+                logger.info(f"WebSocket disconnected for session: {session_id}")
                 break
 
             except Exception as e:
@@ -432,8 +460,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         "type": "error",
                         "message": {
                             "role": "system",
-                            "content":
-                            "An error occurred processing your message."
+                            "content": "An error occurred processing your message."
                         }
                     })
                 except:
@@ -455,6 +482,7 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
 
 # Helper functions for improved error handling
+# Add these helper functions to app.py if they don't exist
 def extract_message_content(message):
     """Extract content from various message formats with enhanced error handling"""
     try:
@@ -481,35 +509,43 @@ def extract_message_content(message):
         return "Error processing message content"
 
 
-def parse_code_execution_error(error_content):
-    """Parse code execution errors and provide more helpful responses"""
-    try:
-        if "memory" in error_content.lower():
-            return "I encountered a memory limitation while executing this code. The calculation you requested requires more memory than is available in the execution environment."
-        elif "timeout" in error_content.lower():
-            return "The code execution timed out. This calculation is too complex to complete within the allowed time limit."
-        else:
-            # Extract the actual error message from the full trace
-            error_lines = error_content.split('\n')
-            for line in error_lines:
-                if "Error:" in line or "Exception:" in line:
-                    return f"Code execution error: {line}"
-            return "There was a problem executing the code. Please try a different approach."
-    except Exception:
-        return "An error occurred during code execution. Please try again with a simpler request."
-
-
 def generate_friendly_error_message(exception, user_message):
-    """Generate user-friendly error messages based on the exception and context"""
+    """
+    Generate user-friendly error messages based on the exception and context,
+    without hardcoding specific responses.
+    """
     error_str = str(exception)
 
-    if "factorial" in user_message.lower() and any(
-            term in error_str.lower()
-            for term in ["memory", "overflow", "too large"]):
-        return "I couldn't calculate this factorial directly due to its size. For very large factorials like this, I can provide the result using mathematical notation instead of computing it directly."
-    elif "search" in user_message.lower() and "api" in error_str.lower():
-        return "I encountered an issue connecting to the search service. Please try again in a moment."
-    elif "wikipedia" in user_message.lower() and "api" in error_str.lower():
-        return "I'm having trouble accessing Wikipedia at the moment. Please try again later or I can search the web instead."
-    else:
-        return "Sorry, I encountered an error processing your request. Please try phrasing your question differently."
+    # Create a mapping of error patterns to generic explanations
+    error_patterns = {
+        # Factorial calculation errors
+        "factorial": {
+            "patterns": ["memory", "overflow", "too large"],
+            "message": "I couldn't calculate this factorial directly due to its size. For very large factorials, I can provide the result using Stirling's approximation or scientific notation instead."
+        },
+        # Search service errors 
+        "search": {
+            "patterns": ["api", "key", "tavily", "connection"],
+            "message": "I encountered an issue connecting to the search service. This might be a temporary connection problem."
+        },
+        # Wikipedia API errors
+        "wikipedia": {
+            "patterns": ["api", "wiki", "timeout"],
+            "message": "I'm having trouble accessing Wikipedia at the moment. I can try answering based on my existing knowledge or search other sources."
+        },
+        # Code execution errors
+        "execution": {
+            "patterns": ["timeout", "memory limit", "execution"],
+            "message": "The code execution timed out or hit resource limits. I can try a different approach to solve this problem."
+        }
+    }
+
+    # Check user message and error against patterns
+    for context, error_info in error_patterns.items():
+        if context.lower() in user_message.lower():
+            for pattern in error_info["patterns"]:
+                if pattern.lower() in error_str.lower():
+                    return error_info["message"]
+
+    # Default generic message when no specific pattern matches
+    return "I encountered an issue while processing your request. Could you try rephrasing your question?"
