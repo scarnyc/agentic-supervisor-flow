@@ -8,6 +8,7 @@ from langchain_core.tools import Tool
 
 logger = logging.getLogger(__name__)
 
+
 class TavilyResultTracker:
     """Class to track Tavily search results."""
 
@@ -54,7 +55,9 @@ def process_search_results(results, max_tokens=2000):
 
     # Sort results by relevance score if available
     if all('score' in r for r in results_list):
-        results_list = sorted(results_list, key=lambda x: x.get('score', 0), reverse=True)
+        results_list = sorted(results_list,
+                              key=lambda x: x.get('score', 0),
+                              reverse=True)
 
     for result in results_list:
         # Estimate tokens in this result (rough estimate: 1 token ≈ 4 chars)
@@ -66,8 +69,11 @@ def process_search_results(results, max_tokens=2000):
             # Calculate how many tokens we can still add
             remaining_tokens = max_tokens - estimated_tokens
             # Truncate the content to fit (with a small buffer)
-            truncated_length = max(0, remaining_tokens * 3)  # Using 3 not 4 for safety margin
-            result['content'] = content[:truncated_length] + "..." if truncated_length > 0 else ""
+            truncated_length = max(0, remaining_tokens *
+                                   3)  # Using 3 not 4 for safety margin
+            result[
+                'content'] = content[:
+                                     truncated_length] + "..." if truncated_length > 0 else ""
             estimated_tokens = max_tokens
             processed_results.append(result)
             break
@@ -79,7 +85,9 @@ def process_search_results(results, max_tokens=2000):
         if estimated_tokens >= max_tokens:
             break
 
-    logger.info(f"Processed search results: {len(processed_results)} items, ~{estimated_tokens} tokens")
+    logger.info(
+        f"Processed search results: {len(processed_results)} items, ~{estimated_tokens} tokens"
+    )
     return processed_results
 
 
@@ -102,7 +110,9 @@ def extract_key_facts(search_results, max_facts=5):
         content = result.get('content', '')
 
         # Simple sentence splitting (could be improved with NLP)
-        sentences = [s.strip() for s in content.split('.') if len(s.strip()) > 20]
+        sentences = [
+            s.strip() for s in content.split('.') if len(s.strip()) > 20
+        ]
 
         # Take up to 2 key sentences from each result
         for j, sentence in enumerate(sentences[:2]):
@@ -187,7 +197,7 @@ def format_citations(content: str) -> str:
         # Extract information that should be cited
         search_results_pattern = r"Based on (?:the|my) search (?:results|findings):(.*?)(?:\n\n|$)"
         search_results_match = re.search(search_results_pattern, content,
-                                     re.DOTALL | re.IGNORECASE)
+                                         re.DOTALL | re.IGNORECASE)
 
         if search_results_match:
             search_results_text = search_results_match.group(1).strip()
@@ -204,8 +214,7 @@ def format_citations(content: str) -> str:
 
         # Also look for statements that reference sources - limit to a few patterns
         source_patterns = [
-            r"According to (.*?), (.*?)\.", 
-            r"(.*?) reports that (.*?)\.",
+            r"According to (.*?), (.*?)\.", r"(.*?) reports that (.*?)\.",
             r"As mentioned in (.*?), (.*?)\."
         ]
 
@@ -260,15 +269,14 @@ def create_tavily_search_tool(tavily_api_key):
         # Create a wrapper function around the TavilySearchResults
         def tavily_search_with_processing(*args, **kwargs):
             try:
-                results = TavilySearchResults(
-                    api_key=tavily_api_key,
-                    k=5,
-                    include_raw_content=True,
-                    include_images=False,
-                    include_answer=True,
-                    max_results=5,
-                    search_depth="advanced"
-                )(*args, **kwargs)
+                results = TavilySearchResults(api_key=tavily_api_key,
+                                              k=5,
+                                              include_raw_content=True,
+                                              include_images=False,
+                                              include_answer=True,
+                                              max_results=5,
+                                              search_depth="advanced")(
+                                                  *args, **kwargs)
 
                 # Process and limit the size of results
                 return process_search_results(results, max_tokens=2000)
@@ -277,7 +285,8 @@ def create_tavily_search_tool(tavily_api_key):
                 # Return fallback results
                 return [{
                     "url": "https://en.wikipedia.org/wiki/Search_error",
-                    "content": "Search encountered an error. Please try again with a more specific query.",
+                    "content":
+                    "Search encountered an error. Please try again with a more specific query.",
                     "title": "Search Error"
                 }]
 
@@ -285,10 +294,12 @@ def create_tavily_search_tool(tavily_api_key):
         search_tool = Tool(
             name="tavily_search_results",
             func=tavily_search_with_processing,
-            description="Search the web for current information. Useful for questions about current events or trending topics."
+            description=
+            "Search the web for current information. Useful for questions about current events or trending topics."
         )
 
-        logger.info("Successfully initialized Tavily Search with token management")
+        logger.info(
+            "Successfully initialized Tavily Search with token management")
         return search_tool
 
     except Exception as e:
@@ -296,7 +307,7 @@ def create_tavily_search_tool(tavily_api_key):
         return None
 
 
-def process_citations_for_response(response: Dict[str, Any]) -> Dict[str, Any]:
+def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
     """
     Process citations in agent responses with token optimization.
 
@@ -317,7 +328,9 @@ def process_citations_for_response(response: Dict[str, Any]) -> Dict[str, Any]:
 
         for message in response["messages"]:
             is_ai_message = isinstance(message, AIMessage)
-            is_assistant_tuple = (isinstance(message, tuple) and len(message) > 1 and message[0] == "assistant")
+            is_assistant_tuple = (isinstance(message, tuple)
+                                  and len(message) > 1
+                                  and message[0] == "assistant")
 
             if is_ai_message or is_assistant_tuple:
                 # Extract the content
@@ -330,13 +343,19 @@ def process_citations_for_response(response: Dict[str, Any]) -> Dict[str, Any]:
 
                 # Transform agent transfer messages
                 agent_transfer_patterns = [
-                    (r"Successfully transferred to search_agent", "Using Web Search Tool..."),
-                    (r"transferred to search_agent", "Using Web Search Tool..."),
-                    (r"Successfully transferred to wiki_agent", "Using Wikipedia Tool..."),
+                    (r"Successfully transferred to search_agent",
+                     "Using Web Search Tool..."),
+                    (r"transferred to search_agent",
+                     "Using Web Search Tool..."),
+                    (r"Successfully transferred to wiki_agent",
+                     "Using Wikipedia Tool..."),
                     (r"transferred to wiki_agent", "Using Wikipedia Tool..."),
-                    (r"Successfully transferred to code_agent", "Using Code Execution Tool..."),
-                    (r"transferred to code_agent", "Using Code Execution Tool..."),
-                    (r"Successfully transferred back to supervisor", "Thinking..."),
+                    (r"Successfully transferred to code_agent",
+                     "Using Code Execution Tool..."),
+                    (r"transferred to code_agent",
+                     "Using Code Execution Tool..."),
+                    (r"Successfully transferred back to supervisor",
+                     "Thinking..."),
                     (r"transferred back to supervisor", "Thinking..."),
                     (r"^search_agent$", "Using Web Search Tool..."),
                     (r"^wiki_agent$", "Using Wikipedia Tool..."),
@@ -365,17 +384,21 @@ def process_citations_for_response(response: Dict[str, Any]) -> Dict[str, Any]:
 
                 # Ensure we're not losing substantive content when the supervisor
                 # only returns the sources
-                if content.strip().startswith("Sources:") and len(content.strip().split("\n")) <= 4:
+                if content.strip().startswith("Sources:") and len(
+                        content.strip().split("\n")) <= 4:
                     for prev_message in response["messages"]:
                         # Look for a previous message with substantial content
-                        prev_content = prev_message.content if isinstance(prev_message, AIMessage) else (prev_message[1] if is_assistant_tuple else "")
+                        prev_content = prev_message.content if isinstance(
+                            prev_message, AIMessage) else (
+                                prev_message[1] if is_assistant_tuple else "")
 
                         # If we find a substantive previous message that isn't just a source citation
-                        if (prev_content and 
-                            len(prev_content.strip()) > 100 and 
-                            not prev_content.strip().startswith("Sources:") and
-                            not "Using Web Search Tool" in prev_content and
-                            not "Using Wikipedia Tool" in prev_content):
+                        if (prev_content and len(prev_content.strip()) > 100
+                                and
+                                not prev_content.strip().startswith("Sources:")
+                                and not "Using Web Search Tool" in prev_content
+                                and
+                                not "Using Wikipedia Tool" in prev_content):
 
                             # Append sources to the substantive content
                             if "Sources:" not in prev_content:
@@ -396,5 +419,5 @@ def process_citations_for_response(response: Dict[str, Any]) -> Dict[str, Any]:
         response["messages"] = processed_messages
         return response
     except Exception as e:
-        logger.error(f"Error in process_citations_for_response: {e}")
+        logger.error(f"Error in process_citations: {e}")
         return response  # Return original response if processing fails

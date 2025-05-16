@@ -20,19 +20,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# Add a simple monitoring endpoint to track performance
-@app.get("/api/metrics", response_model=dict)
-async def get_metrics():
-    """Return system metrics for monitoring."""
-    metrics = {
-        "active_connections": len(active_connections),
-        "active_sessions": len(sessions),
-        "rate_limit_encounters": getattr(app.state, "rate_limit_count", 0),
-        "average_token_usage": getattr(app.state, "avg_token_usage", 0),
-    }
-    return metrics
-
-
 class AgentState(TypedDict):
     messages: List[Dict[str, Any]]
     current_agent: str
@@ -315,7 +302,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     config = {"configurable": {"thread_id": session_id}}
 
                     # Add execution metadata for code execution
-                    if "calculate" in user_message.lower() or "factorial" in user_message.lower():
+                    if "calculate" in user_message.lower(
+                    ) or "factorial" in user_message.lower():
                         config["configurable"]["execution_mode"] = "safe"
 
                     # Stream the events in the graph
@@ -324,35 +312,47 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
                         # Process each event
                         for value in event.values():
-                            if isinstance(value, dict) and "messages" in value and value["messages"]:
+                            if isinstance(
+                                    value, dict
+                            ) and "messages" in value and value["messages"]:
                                 try:
                                     # Get the last message
                                     last_message = value["messages"][-1]
 
                                     # Extract content with error handling
-                                    new_content = extract_message_content(last_message)
+                                    new_content = extract_message_content(
+                                        last_message)
 
                                     # Check for code execution errors
                                     if "Code execution failed" in new_content:
                                         from agent_tools.code_tools import parse_code_execution_error
-                                        new_content = parse_code_execution_error(new_content)
+                                        new_content = parse_code_execution_error(
+                                            new_content)
 
                                     # Process citations in the new content
-                                    from agent_tools.search_tools import process_citations_for_response
-                                    new_content_processed = process_citations_for_response({
-                                        "messages": [("assistant", new_content)]
-                                    })
+                                    from agent_tools.search_tools import process_citations
+                                    new_content_processed = process_citations(
+                                        {
+                                            "messages":
+                                            [("assistant", new_content)]
+                                        })
 
-                                    if isinstance(new_content_processed, dict) and "messages" in new_content_processed:
-                                        new_content = new_content_processed["messages"][0][1]
+                                    if isinstance(
+                                            new_content_processed, dict
+                                    ) and "messages" in new_content_processed:
+                                        new_content = new_content_processed[
+                                            "messages"][0][1]
 
                                     # Keep track of substantial responses
-                                    if (not "Transferring" in new_content and 
-                                        not "Using Web Search Tool" in new_content and
-                                        not "Using Wikipedia Tool" in new_content and
-                                        not "Using Code Execution Tool" in new_content and
-                                        not "Thinking" in new_content and
-                                        len(new_content.strip()) > 10):
+                                    if (not "Transferring" in new_content
+                                            and not "Using Web Search Tool"
+                                            in new_content
+                                            and not "Using Wikipedia Tool"
+                                            in new_content
+                                            and not "Using Code Execution Tool"
+                                            in new_content
+                                            and not "Thinking" in new_content
+                                            and len(new_content.strip()) > 10):
                                         last_message_content = new_content
 
                                     # Calculate approximate token count (4 chars ~ 1 token)
@@ -365,8 +365,10 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                             await websocket.send_json({
                                                 "type": "info",
                                                 "message": {
-                                                    "role": "system",
-                                                    "content": "Response truncated due to size limitations."
+                                                    "role":
+                                                    "system",
+                                                    "content":
+                                                    "Response truncated due to size limitations."
                                                 }
                                             })
                                             token_limit_hit = True
@@ -386,29 +388,34 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                         total_tokens_sent += new_tokens
 
                                 except Exception as e:
-                                    logger.error(f"Error processing message: {e}")
+                                    logger.error(
+                                        f"Error processing message: {e}")
                                     traceback.print_exc()
 
                                     # Continue processing despite errors
                                     await websocket.send_json({
                                         "type": "error",
                                         "message": {
-                                            "role": "system",
-                                            "content": "An error occurred while processing part of the response."
+                                            "role":
+                                            "system",
+                                            "content":
+                                            "An error occurred while processing part of the response."
                                         }
                                     })
 
                     # Ensure we're using the most substantial response (not just "Sources:")
                     final_response = partial_response
-                    if (last_message_content and 
-                        (partial_response.strip().startswith("Sources:") or 
-                         len(partial_response.strip()) < len(last_message_content.strip()))):
+                    if (last_message_content and
+                        (partial_response.strip().startswith("Sources:")
+                         or len(partial_response.strip()) < len(
+                             last_message_content.strip()))):
                         final_response = last_message_content
 
                     # Add final assistant message to session
                     if final_response:
                         sessions[session_id]["messages"].append(
-                            ChatMessage(role="assistant", content=final_response))
+                            ChatMessage(role="assistant",
+                                        content=final_response))
 
                         # Send completion message
                         await websocket.send_json({
@@ -423,7 +430,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     logger.error(f"Error in workflow streaming: {e}")
                     traceback.print_exc()
 
-                    error_message = generate_friendly_error_message(e, user_message)
+                    error_message = generate_friendly_error_message(
+                        e, user_message)
 
                     # Send error message to client
                     await websocket.send_json({
@@ -448,7 +456,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                     })
 
             except WebSocketDisconnect:
-                logger.info(f"WebSocket disconnected for session: {session_id}")
+                logger.info(
+                    f"WebSocket disconnected for session: {session_id}")
                 break
 
             except Exception as e:
@@ -460,7 +469,8 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                         "type": "error",
                         "message": {
                             "role": "system",
-                            "content": "An error occurred processing your message."
+                            "content":
+                            "An error occurred processing your message."
                         }
                     })
                 except:
@@ -521,22 +531,26 @@ def generate_friendly_error_message(exception, user_message):
         # Factorial calculation errors
         "factorial": {
             "patterns": ["memory", "overflow", "too large"],
-            "message": "I couldn't calculate this factorial directly due to its size. For very large factorials, I can provide the result using Stirling's approximation or scientific notation instead."
+            "message":
+            "I couldn't calculate this factorial directly due to its size. For very large factorials, I can provide the result using Stirling's approximation or scientific notation instead."
         },
-        # Search service errors 
+        # Search service errors
         "search": {
             "patterns": ["api", "key", "tavily", "connection"],
-            "message": "I encountered an issue connecting to the search service. This might be a temporary connection problem."
+            "message":
+            "I encountered an issue connecting to the search service. This might be a temporary connection problem."
         },
         # Wikipedia API errors
         "wikipedia": {
             "patterns": ["api", "wiki", "timeout"],
-            "message": "I'm having trouble accessing Wikipedia at the moment. I can try answering based on my existing knowledge or search other sources."
+            "message":
+            "I'm having trouble accessing Wikipedia at the moment. I can try answering based on my existing knowledge or search other sources."
         },
         # Code execution errors
         "execution": {
             "patterns": ["timeout", "memory limit", "execution"],
-            "message": "The code execution timed out or hit resource limits. I can try a different approach to solve this problem."
+            "message":
+            "The code execution timed out or hit resource limits. I can try a different approach to solve this problem."
         }
     }
 

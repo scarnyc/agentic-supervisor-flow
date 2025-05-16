@@ -24,7 +24,7 @@ from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
 
 # Import custom Agent tools
-from agent_tools.search_tools import create_tavily_search_tool, process_citations_for_response
+from agent_tools.search_tools import create_tavily_search_tool, process_citations
 from agent_tools.wiki_tools import create_wikipedia_tool
 from agent_tools.code_tools import get_code_tools
 
