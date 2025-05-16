@@ -96,8 +96,6 @@ User Query
 ## Next Steps
 
 ### v0
-✅  Code execution in secure sandbox environment for Data Analysis
-✅  Prompt optimization for all agents
 - Caching Results: Add a simple cache for commonly requested information to reduce API calls
 - Progressive Enhancement: In the frontend, show typing indicators during tool transitions for a more natural feel
 - Error Recovery: Implement automatic retries for temporary API failures
@@ -115,6 +113,7 @@ User Query
 - MCP Servers
 - Slack, LinkedIn, gmail, Nasa toolkit
 - Upgraded web search with Google SerpAPI
+- Deep Research w/ Perplexity
 - App optimized for security, speed & efficiency
 
 ### v3
