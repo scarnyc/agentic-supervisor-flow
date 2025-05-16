@@ -18,6 +18,7 @@ The system is built using:
 
 ## Key Features
 
+- **Reasoning** with Claude 3.7 Sonnet
 - **Real-time streaming** responses via WebSockets
 - **Citation formatting** for web search results
 - **Secure code execution** via Python REPL
@@ -95,10 +96,12 @@ User Query
 ## Next Steps
 
 ### v0
-- Upgraded web search with Google SerpAPI
-- Code execution in secure sandbox environment for Data Analysis
-- App optimized for speed & efficiency
-- Prompt optimization for all agents
+✅  Code execution in secure sandbox environment for Data Analysis
+✅  Prompt optimization for all agents
+- Caching Results: Add a simple cache for commonly requested information to reduce API calls
+- Progressive Enhancement: In the frontend, show typing indicators during tool transitions for a more natural feel
+- Error Recovery: Implement automatic retries for temporary API failures
+- User Feedback Loop: Add a thumbs up/down mechanism to collect feedback on answers
 
 ### v1
 - Generative UI
@@ -111,7 +114,8 @@ User Query
 - Log-in screen with Google oAuth for sign-in
 - MCP Servers
 - Slack, LinkedIn, gmail, Nasa toolkit
-- App optimized for security
+- Upgraded web search with Google SerpAPI
+- App optimized for security, speed & efficiency
 
 ### v3
 - Planning: research, generation, reflection
