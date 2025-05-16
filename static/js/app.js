@@ -29,15 +29,25 @@ document.addEventListener("DOMContentLoaded", function () {
             if (data.type === "message_received") {
                 // User message already added, do nothing
             } else if (data.type === "partial_response") {
+                // Filter out raw transition messages
+                if (shouldFilterMessage(data.message.content)) {
+                    // Don't display these raw transition messages
+                    return;
+                }
+
                 // Update or create assistant's message
                 updateAssistantMessage(data.message.content);
             } else if (data.type === "message_complete") {
+                // Filter out raw transition messages on final message too
+                if (shouldFilterMessage(data.message.content)) {
+                    return;
+                }
+
                 // Finalize assistant's message
                 updateAssistantMessage(data.message.content, true);
 
                 // Remove typing indicator if present
-                const typingIndicator =
-                    document.querySelector(".typing-indicator");
+                const typingIndicator = document.querySelector(".typing-indicator");
                 if (typingIndicator) {
                     typingIndicator.remove();
                 }
@@ -63,6 +73,31 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Initialize WebSocket connection
     initWebSocket();
+
+    // Function to determine if a message should be filtered
+    function shouldFilterMessage(content) {
+        if (!content) return false;
+
+        const trimmed = content.trim();
+
+        // Agent names (exact matches)
+        if (/^supervisor$/i.test(trimmed) || 
+            /^wiki_agent$/i.test(trimmed) || 
+            /^search_agent$/i.test(trimmed) || 
+            /^code_agent$/i.test(trimmed)) {
+            return true;
+        }
+
+        // Any kind of transfer message
+        if (/transferred.*supervisor/i.test(trimmed) || 
+            /transferred.*wiki_agent/i.test(trimmed) || 
+            /transferred.*search_agent/i.test(trimmed) || 
+            /transferred.*code_agent/i.test(trimmed)) {
+            return true;
+        }
+
+        return false;
+    }
 
     // Send a message via the WebSocket
     function sendMessage() {

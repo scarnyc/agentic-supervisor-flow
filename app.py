@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from typing import (Dict, Optional, List, Any, TypedDict)
 import uuid
 import json
+import re
 import traceback
 import logging
 from agent import get_workflow_app
@@ -18,6 +19,84 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 logger = logging.getLogger(__name__)
+
+
+# Helper functions for message transformations
+def transform_agent_messages(content):
+    """
+    Transform raw agent transfer messages to user-friendly versions.
+    This function should be called before sending messages to the client.
+    """
+    if not content or not isinstance(content, str):
+        return content
+
+    # Define transformation patterns
+    agent_transfer_patterns = [
+        # Existing patterns
+        (r"^supervisor$", "Thinking..."),
+        (r"^wiki_agent$", "Using Wikipedia Tool..."),
+        (r"^search_agent$", "Using Web Search Tool..."),
+        (r"^code_agent$", "Using Code Execution Tool..."),
+        (r".*[Ss]uccessfully transferred to supervisor.*", "Thinking..."),
+        (r".*[Ss]uccessfully transferred to wiki_agent.*", "Using Wikipedia Tool..."),
+        (r".*[Ss]uccessfully transferred to search_agent.*", "Using Web Search Tool..."),
+        (r".*[Ss]uccessfully transferred to code_agent.*", "Using Code Execution Tool..."),
+        (r".*transferred to supervisor.*", "Thinking..."),
+        (r".*transferred to wiki_agent.*", "Using Wikipedia Tool..."),
+        (r".*transferred to search_agent.*", "Using Web Search Tool..."),
+        (r".*transferred to code_agent.*", "Using Code Execution Tool..."),
+
+        # Add these specific patterns for "transferred back" messages
+        (r".*[Ss]uccessfully transferred back to supervisor.*", "Thinking..."),
+        (r".*[Ss]uccessfully transferred back to wiki_agent.*", "Using Wikipedia Tool..."),
+        (r".*[Ss]uccessfully transferred back to search_agent.*", "Using Web Search Tool..."),
+        (r".*[Ss]uccessfully transferred back to code_agent.*", "Using Code Execution Tool..."),
+        (r".*transferred back to supervisor.*", "Thinking..."),
+        (r".*transferred back to wiki_agent.*", "Using Wikipedia Tool..."),
+        (r".*transferred back to search_agent.*", "Using Web Search Tool..."),
+        (r".*transferred back to code_agent.*", "Using Code Execution Tool..."),
+    ]
+
+    # Apply transformations
+    transformed = content
+    for pattern, replacement in agent_transfer_patterns:
+        transformed = re.sub(pattern, replacement, transformed, flags=re.IGNORECASE)
+
+    # Log transformation if it occurred
+    if transformed != content:
+        logger.debug(f"Transformed message: '{content}' → '{transformed}'")
+
+    return transformed
+
+
+def should_filter_message(content):
+    if not content or not isinstance(content, str):
+        return False
+
+    # Trim content for pattern matching
+    content_trimmed = content.strip()
+
+    # Generic patterns to catch all transition messages
+    transition_patterns = [
+        r".*transferred.*supervisor.*",
+        r".*transferred.*wiki_agent.*",
+        r".*transferred.*search_agent.*", 
+        r".*transferred.*code_agent.*"
+    ]
+
+    # Check for exact agent names
+    exact_patterns = [
+        r"^supervisor$",
+        r"^wiki_agent$",
+        r"^search_agent$",
+        r"^code_agent$"
+    ]
+
+    # Return true if any pattern matches
+    return (
+        any(re.match(pattern, content_trimmed, re.IGNORECASE) for pattern in exact_patterns) or
+        any(re.match(pattern, content_trimmed, re.IGNORECASE) for pattern in transition_patterns)
+    )
 
 
 class AgentState(TypedDict):
@@ -322,6 +401,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                                     # Extract content with error handling
                                     new_content = extract_message_content(
                                         last_message)
+
+                                    # Transform and filter agent messages
+                                    if isinstance(new_content, str):
+                                        # Check if we should filter this message entirely
+                                        if should_filter_message(new_content):
+                                            continue  # Skip sending this message to the client
+
+                                        # Transform the message to a user-friendly version
+                                        new_content = transform_agent_messages(new_content)
 
                                     # Check for code execution errors
                                     if "Code execution failed" in new_content:
