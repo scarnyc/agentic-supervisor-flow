@@ -341,30 +341,21 @@ def process_citations(response: Dict[str, Any]) -> Dict[str, Any]:
                     processed_messages.append(message)
                     continue
 
-                # Transform agent transfer messages
+                # Update the agent_transfer_patterns section with more flexible patterns
                 agent_transfer_patterns = [
-                    (r"Successfully transferred to search_agent",
-                     "Using Web Search Tool..."),
-                    (r"transferred to search_agent",
-                     "Using Web Search Tool..."),
-                    (r"Successfully transferred to wiki_agent",
-                     "Using Wikipedia Tool..."),
-                    (r"transferred to wiki_agent", "Using Wikipedia Tool..."),
-                    (r"Successfully transferred to code_agent",
-                     "Using Code Execution Tool..."),
-                    (r"transferred to code_agent",
-                     "Using Code Execution Tool..."),
-                    (r"Successfully transferred back to supervisor",
-                     "Thinking..."),
-                    (r"transferred back to supervisor", "Thinking..."),
-                    (r"^search_agent$", "Using Web Search Tool..."),
-                    (r"^wiki_agent$", "Using Wikipedia Tool..."),
-                    (r"^code_agent$", "Using Code Execution Tool..."),
-                    (r"^supervisor$", "Thinking...")
+                    (r"(?i).*transferred to search_agent.*", "Using Web Search Tool..."),
+                    (r"(?i).*transferred to wiki_agent.*", "Using Wikipedia Tool..."),
+                    (r"(?i).*transferred to code_agent.*", "Using Code Execution Tool..."),
+                    (r"(?i).*transferred.*to supervisor.*", "Thinking..."),
+                    (r"(?i)^search_agent$", "Using Web Search Tool..."),
+                    (r"(?i)^wiki_agent$", "Using Wikipedia Tool..."),
+                    (r"(?i)^code_agent$", "Using Code Execution Tool..."),
+                    (r"(?i)^supervisor$", "Thinking...")
                 ]
 
+                # Then in the pattern replacement loop:
                 for pattern, replacement in agent_transfer_patterns:
-                    content = re.sub(pattern, replacement, content)
+                    content = re.sub(pattern, replacement, content, flags=re.IGNORECASE)
 
                 # Process citations
                 content = format_citations(content)
