@@ -93,7 +93,7 @@ User Query
 └─────────────┘  └─────────────┘  └─────────────┘
 
 ```
-## Next Steps
+## Roadmap
 
 ### v0
 - Caching Results: Add a simple cache for commonly requested information to reduce API calls
