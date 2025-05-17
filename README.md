@@ -111,20 +111,20 @@ User Query
 - Human in the loop (stop and ask for input)
 - Log-in screen with Google oAuth for sign-in
 - MCP Servers
-- Slack, LinkedIn, gmail, Nasa toolkit
-- Upgraded web search with Google SerpAPI
-- Deep Research w/ Perplexity
+- File System
 - App optimized for security, speed & efficiency
 
 ### v3
 - Planning: research, generation, reflection
+- RAG, Deep Research w/ Perplexity
+- Upgraded web search with Google SerpAPI
 - Persist user Chat history (UI)
 - Evals, monitoring & logging
 - Experiment with thinking budget / prompt caching
 - Show thinking output
 
 ### V4
-- Computer Use, RAG
+- Slack, LinkedIn, gmail, Nasa toolkit, Substack
 - User-input OpenAI / Gemini API Key
 - Security with Cloudflare
 ```
